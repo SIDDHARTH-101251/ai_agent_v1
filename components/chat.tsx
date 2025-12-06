@@ -9,11 +9,13 @@ import {
   ArrowRightOnRectangleIcon,
   BookmarkIcon,
   ChevronLeftIcon,
+  InformationCircleIcon,
   MicrophoneIcon,
   PaperAirplaneIcon,
   SpeakerWaveIcon,
   SwatchIcon,
   SunIcon,
+  TrashIcon,
   MoonIcon,
   UserIcon,
 } from "@heroicons/react/24/solid";
@@ -164,6 +166,7 @@ export function Chat({
   const [listening, setListening] = useState(false);
   const wasListeningDuringSpeak = useRef(false);
   const listeningRef = useRef(false);
+  const pendingTranscriptRef = useRef<string | null>(null);
   const conversationIdRef = useRef<string | null>(
     initialConversations[0]?.id ?? null
   );
@@ -575,20 +578,18 @@ export function Chat({
       recog.interimResults = true;
       recog.maxAlternatives = 1;
       recog.onresult = (event: any) => {
-        const result = event.results?.[event.resultIndex];
-        if (!result) return;
-        const transcript = Array.from(result)
-          .map((r: any) => r?.transcript ?? "")
-          .join("")
+        const resultsArr = Array.from(event.results ?? []) as SpeechRecognitionResult[];
+        if (!resultsArr.length) return;
+        const transcript = resultsArr
+          .map((r: SpeechRecognitionResult) => r?.[0]?.transcript ?? "")
+          .join(" ")
           .trim();
         if (!transcript) return;
         setInput(transcript);
         resizeTextarea(transcript);
-        if (result.isFinal) {
-          // Let the UI show the captured text before sending.
-          setTimeout(() => {
-            sendMessage(transcript);
-          }, 200);
+        const hasFinal = resultsArr.some((r) => r?.isFinal);
+        if (hasFinal) {
+          pendingTranscriptRef.current = transcript;
         }
       };
       recog.onerror = () => {
@@ -596,6 +597,15 @@ export function Chat({
         setListening(false);
       };
       recog.onend = () => {
+        const finalText = pendingTranscriptRef.current?.trim();
+        pendingTranscriptRef.current = null;
+        if (finalText) {
+          setInput(finalText);
+          resizeTextarea(finalText);
+          setTimeout(() => {
+            sendMessage(finalText);
+          }, 200);
+        }
         if (listeningRef.current && isDesktop) {
           recog.start();
           return;
@@ -613,6 +623,7 @@ export function Chat({
   const stopListening = () => {
     recognitionRef.current?.stop();
     listeningRef.current = false;
+    pendingTranscriptRef.current = null;
     setListening(false);
   };
 
@@ -696,24 +707,26 @@ export function Chat({
                 </span>
               </button>
               <div
-                className={`flex items-center gap-1 transition ${
-                  activeConversationActions === c.id
-                    ? "opacity-100"
-                    : "opacity-0 group-hover:opacity-100"
-                }`}
+                className={`flex gap-1 transition ${
+                  activeConversationActions === c.id ? "opacity-100" : ""
+                } lg:opacity-0 lg:group-hover:opacity-100 lg:flex-row lg:items-center`}
               >
-                <button
-                  onClick={() => setOpenSummaryId((prev) => (prev === c.id ? null : c.id))}
-                  className={`rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.2em] transition hover:bg-white/10 ${textPrimary}`}
-                >
-                  i
-                </button>
-                <button
-                  onClick={() => deleteConversation(c.id)}
-                  className={`rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.2em] transition hover:bg-white/10 ${textPrimary}`}
-                >
-                  Delete
-                </button>
+                <div className="flex flex-col items-center gap-2 lg:flex-row">
+                  <button
+                    onClick={() => deleteConversation(c.id)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10`}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                    <span className="sr-only">Delete</span>
+                  </button>
+                  <button
+                    onClick={() => setOpenSummaryId((prev) => (prev === c.id ? null : c.id))}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10`}
+                  >
+                    <InformationCircleIcon className="h-4 w-4" />
+                    <span className="sr-only">Info</span>
+                  </button>
+                </div>
               </div>
 
               {openSummaryId === c.id && (
