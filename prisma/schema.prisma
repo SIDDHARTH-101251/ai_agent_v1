@@ -15,6 +15,7 @@ model User {
   email          String?         @unique
   emailVerified  DateTime?
   image          String?
+  isAdmin        Boolean         @default(false)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   themeMode      String          @default("dark")
@@ -24,6 +25,7 @@ model User {
   conversations  Conversation[]
   pinned         PinnedMessage[]
   sessions       Session[]
+  usage          DailyUsage[]
 }
 
 model Account {
@@ -110,6 +112,17 @@ model PinnedMessage {
 
   @@unique([userId, messageId])
   @@index([userId])
+}
+
+model DailyUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  day       DateTime
+  responses Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@index([userId, day])
 }
 
 enum MessageRole {

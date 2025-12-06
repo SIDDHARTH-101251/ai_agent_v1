@@ -124,6 +124,7 @@ export default async function Home() {
     <Chat
       userName={session.user?.name ?? session.user?.email}
       userImage={userImageRecord?.image ?? session.user?.image ?? null}
+      isAdmin={(session.user as { isAdmin?: boolean } | undefined)?.isAdmin ?? false}
       initialConversations={initialConversations}
       initialThemeName={
         typeof (session.user as { themeName?: string } | undefined)?.themeName ===

@@ -93,6 +93,9 @@ export function SignInCard() {
           {status === "loading" ? "Working..." : mode === "login" ? "Login" : "Register & login"}
         </button>
       </form>
+      <p className="mt-3 text-xs text-indigo-100/90">
+        Admins can sign in with the reserved admin username to manage users and quotas.
+      </p>
       {error && (
         <p className="mt-3 text-sm text-red-200">
           {error}

@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession } from "@/lib/auth";
+import { DAILY_RESPONSE_LIMIT, getAuthSession } from "@/lib/auth";
 import { runReactAgent } from "@/lib/agent";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GEMINI_MODEL } from "@/lib/gemini";
-import { HumanMessage } from "@langchain/core/messages";
+import { startOfUTCDay } from "@/lib/dates";
 
 export async function POST(req: NextRequest) {
   const session = await getAuthSession();
@@ -14,6 +14,27 @@ export async function POST(req: NextRequest) {
       (session?.user as { email?: string } | undefined)?.email ||
       (session?.user as { name?: string } | undefined)?.name
   );
+  const isAdmin = Boolean((session?.user as { isAdmin?: boolean } | undefined)?.isAdmin);
+  let today: Date | null = null;
+  let todayRemaining: number | null = null;
+
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isAdmin) {
+    today = startOfUTCDay();
+    const usage = await prisma.dailyUsage.findUnique({
+      where: { userId_day: { userId, day: today } },
+      select: { responses: true },
+    });
+    if (usage && usage.responses >= DAILY_RESPONSE_LIMIT) {
+      return NextResponse.json(
+        { error: "Daily response limit reached" },
+        { status: 429 }
+      );
+    }
+  }
 
   if (!hasIdentity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -27,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
   }
 
-  const ownerId = userId ?? "anonymous";
+  const ownerId = userId;
 
   let conversation =
     existingConversationId &&
@@ -95,6 +116,20 @@ export async function POST(req: NextRequest) {
           data: { content: finalAssistant },
         });
 
+        if (!isAdmin) {
+          const day = today ?? startOfUTCDay();
+          const updatedUsage = await prisma.dailyUsage.upsert({
+            where: { userId_day: { userId: ownerId, day } },
+            update: { responses: { increment: 1 } },
+            create: { userId: ownerId, day, responses: 1 },
+            select: { responses: true },
+          });
+          todayRemaining = Math.max(
+            DAILY_RESPONSE_LIMIT - (updatedUsage?.responses ?? 0),
+            0
+          );
+        }
+
         // Update conversation summary in the background.
         try {
           await generateSummary(conversation!.id);
@@ -117,6 +152,12 @@ export async function POST(req: NextRequest) {
       "X-Conversation-Id": conversation.id,
       "X-User-Message-Id": userMessage.id,
       "X-Assistant-Message-Id": assistantMessage.id,
+      ...(todayRemaining !== null
+        ? {
+            "X-Usage-Remaining": String(todayRemaining),
+            "X-Usage-Limit": String(DAILY_RESPONSE_LIMIT),
+          }
+        : {}),
     },
   });
 }

@@ -476,6 +476,7 @@ type Conversation = {
 type Props = {
   userName?: string | null;
   userImage?: string | null;
+  isAdmin?: boolean;
   initialConversations: Conversation[];
   initialThemeName?: string;
   initialThemeMode?: string;
@@ -486,6 +487,7 @@ type Props = {
 export function Chat({
   userName,
   userImage,
+  isAdmin,
   initialConversations,
   initialThemeName,
   initialThemeMode,
@@ -1708,6 +1710,15 @@ export function Chat({
                 <span className={`pl-2 pr-3 text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
                   Quick
                 </span>
+                {isAdmin && (
+                  <a
+                    href="/admin"
+                    className={`${toggleBase} ${toggleIdle}`}
+                    title="Admin dashboard"
+                  >
+                    Admin
+                  </a>
+                )}
                 <button
                   onClick={togglePinnedPanel}
                   className={`${toggleBase} ${showPinned ? toggleActive : toggleIdle}`}

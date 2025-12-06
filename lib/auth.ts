@@ -22,6 +22,15 @@ const verifyPassword = (password: string, stored?: string | null) => {
 };
 
 const nextAuthSecret = process.env.NEXTAUTH_SECRET || "dev-secret-change-me";
+const adminUsername = process.env.ADMIN_USERNAME || "admin";
+const DAILY_LIMIT = Number(process.env.DAILY_RESPONSE_LIMIT ?? "20");
+const MAX_JWT_FIELD_LENGTH = 512;
+
+const safeString = (value?: string | null, maxLength = MAX_JWT_FIELD_LENGTH) => {
+  if (typeof value !== "string") return undefined;
+  if (value.length > maxLength) return undefined;
+  return value;
+};
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -56,6 +65,7 @@ export const authOptions: NextAuthOptions = {
               username,
               name: username,
               passwordHash: hashPassword(password),
+              isAdmin: username.toLowerCase() === adminUsername.toLowerCase(),
             },
           });
           return {
@@ -65,6 +75,8 @@ export const authOptions: NextAuthOptions = {
             themeName: created.themeName,
             themeMode: created.themeMode,
             profileSummary: created.profileSummary,
+            image: created.image,
+            isAdmin: created.isAdmin,
           } as any;
         }
 
@@ -81,6 +93,8 @@ export const authOptions: NextAuthOptions = {
           themeName: user.themeName,
           themeMode: user.themeMode,
           profileSummary: user.profileSummary,
+          image: user.image,
+          isAdmin: user.isAdmin,
         } as any;
       },
     }),
@@ -101,14 +115,22 @@ export const authOptions: NextAuthOptions = {
           name?: string | null;
           email?: string | null;
           image?: string | null;
+          isAdmin?: boolean;
         };
         token.id = anyUser.id;
         token.name = anyUser.username ?? anyUser.name ?? token.name;
         token.email = anyUser.email ?? token.email;
         token.themeName = anyUser.themeName;
         token.themeMode = anyUser.themeMode;
-        token.profileSummary = anyUser.profileSummary ?? null;
-        token.picture = anyUser.image ?? token.picture;
+        token.profileSummary = safeString(anyUser.profileSummary, 1000) ?? null;
+        const safeImage = safeString(anyUser.image);
+        if (safeImage) {
+          token.picture = safeImage;
+        } else if (token.picture && typeof token.picture === "string" && token.picture.length > MAX_JWT_FIELD_LENGTH) {
+          // Drop over-sized existing image values to keep the JWT small.
+          delete (token as any).picture;
+        }
+        (token as any).isAdmin = anyUser.isAdmin ?? false;
       }
       return token;
     },
@@ -121,13 +143,15 @@ export const authOptions: NextAuthOptions = {
           profileSummary?: string | null;
           name?: string | null;
           image?: string | null;
+          isAdmin?: boolean;
         };
         u.id = token.id as string | undefined;
         u.themeName = (token as any).themeName;
         u.themeMode = (token as any).themeMode;
-        u.profileSummary = (token as any).profileSummary ?? null;
+        u.profileSummary = safeString((token as any).profileSummary, 1000) ?? null;
         u.name = (token.name as string) ?? u.name ?? null;
-        u.image = (token.picture as string) ?? u.image ?? null;
+        u.image = safeString(token.picture as string | undefined) ?? u.image ?? null;
+        (u as any).isAdmin = (token as any).isAdmin ?? false;
       }
       return session;
     },
@@ -136,3 +160,4 @@ export const authOptions: NextAuthOptions = {
 
 export const getAuthSession = () => getServerSession(authOptions);
 export const createPasswordHash = hashPassword;
+export const DAILY_RESPONSE_LIMIT = DAILY_LIMIT;
