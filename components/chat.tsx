@@ -197,6 +197,13 @@ export function Chat({
   const headerBorderColor = isDark
     ? "rgba(255,255,255,0.15)"
     : "rgba(0,0,0,0.1)";
+  const resizeTextarea = (value: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(el.scrollHeight, 200);
+    el.style.height = `${Math.max(next, 60)}px`;
+  };
 
   const clearMessagePressTimer = () => {
     if (messagePressTimer.current) {
@@ -256,6 +263,10 @@ export function Chat({
       clearConversationPressTimer();
     };
   }, []);
+
+  useEffect(() => {
+    resizeTextarea(input);
+  }, [input]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -518,6 +529,7 @@ export function Chat({
 
   const lastSpokenIdRef = useRef<string | null>(null);
   const lastSpokenLenRef = useRef<number>(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!voiceEnabled) return;
@@ -560,13 +572,19 @@ export function Chat({
       const recog = new SpeechRecognitionCtor() as SpeechRecognitionInstance;
       recog.continuous = true;
       recog.lang = "en-US";
-      recog.interimResults = false;
+      recog.interimResults = true;
       recog.maxAlternatives = 1;
       recog.onresult = (event: any) => {
         const result = event.results?.[event.resultIndex];
-        const transcript = result?.[0]?.transcript?.trim();
-        if (transcript) {
-          setInput(transcript);
+        if (!result) return;
+        const transcript = Array.from(result)
+          .map((r: any) => r?.transcript ?? "")
+          .join("")
+          .trim();
+        if (!transcript) return;
+        setInput(transcript);
+        resizeTextarea(transcript);
+        if (result.isFinal) {
           // Let the UI show the captured text before sending.
           setTimeout(() => {
             sendMessage(transcript);
@@ -1083,22 +1101,66 @@ export function Chat({
             </div>
           )}
           <div className="relative flex items-end gap-3">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask the agent..."
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-              className={`min-h-[60px] flex-1 rounded-2xl border px-4 py-3 text-sm shadow-inner outline-none transition focus:ring-2 ${
-                isDark
-                  ? "border-white/15 bg-white/5 text-white focus:border-white/40 focus:ring-white/20 placeholder:text-slate-400"
-                  : "border-slate-300 bg-white text-slate-900 focus:border-slate-400 focus:ring-slate-200 placeholder:text-slate-500"
-              }`}
-            />
+            <div className="relative flex-1">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask the agent..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                className={`min-h-[60px] w-full resize-none rounded-2xl border px-4 py-3 pr-16 text-sm shadow-inner outline-none transition focus:ring-2 ${
+                  isDark
+                    ? "border-white/15 bg-white/5 text-white focus:border-white/40 focus:ring-white/20 placeholder:text-slate-400"
+                    : "border-slate-300 bg-white text-slate-900 focus:border-slate-400 focus:ring-slate-200 placeholder:text-slate-500"
+                }`}
+              />
+              {!isDesktop && (
+                <button
+                  onClick={
+                    isStreaming
+                      ? abortStream
+                      : () => {
+                          void sendMessage();
+                        }
+                  }
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 text-white shadow-md transition ${
+                    isStreaming ? "bg-red-500/80 hover:bg-red-500" : theme.accent
+                  } md:hidden`}
+                  aria-label={isStreaming ? "Stop" : "Send"}
+                >
+                  {isStreaming ? (
+                    <span className="text-xs font-semibold">Stop</span>
+                  ) : (
+                    <PaperAirplaneIcon className="h-5 w-5 -rotate-45" />
+                  )}
+                </button>
+              )}
+              {!isDesktop && (
+                <button
+                  onClick={() => (listening ? stopListening() : startListening())}
+                  className={`absolute -right-2 -top-8 z-0 flex h-11 w-11 items-center justify-center rounded-full border ${
+                    isDark
+                      ? "border-white/25 bg-white/10 text-white"
+                      : "border-slate-300 bg-white text-slate-900"
+                  } shadow-lg backdrop-blur transition ${
+                    listening ? "ring-2 ring-emerald-400/60" : "hover:-translate-y-0.5"
+                  }`}
+                  title={listening ? "Stop mic" : "Start mic"}
+                >
+                  <span className="relative">
+                    {listening && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.35)] animate-pulse" />
+                    )}
+                    <MicrophoneIcon className="h-5 w-5" />
+                  </span>
+                </button>
+              )}
+            </div>
             <button
               onClick={
                 isStreaming
@@ -1107,7 +1169,7 @@ export function Chat({
                       void sendMessage();
                     }
               }
-              className={`flex h-12 min-w-[52px] items-center justify-center rounded-2xl px-3 text-sm font-semibold text-white transition md:min-w-[120px] md:px-4 ${
+              className={`hidden h-12 min-w-[120px] items-center justify-center rounded-2xl px-4 text-sm font-semibold text-white transition md:flex ${
                 isStreaming ? "bg-red-500/80 hover:bg-red-500" : theme.accent
               }`}
             >
@@ -1117,27 +1179,11 @@ export function Chat({
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  <PaperAirplaneIcon className="h-5 w-5 -rotate-45 md:h-4 md:w-4 md:rotate-0" />
-                  <span className="hidden md:inline">Send</span>
+                  <PaperAirplaneIcon className="h-4 w-4" />
+                  <span>Send</span>
                 </span>
               )}
             </button>
-            {!isDesktop && (
-              <button
-                onClick={() => (listening ? stopListening() : startListening())}
-                className={`absolute -top-14 right-3 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/60 text-white shadow-lg backdrop-blur transition ${
-                  listening ? "ring-2 ring-emerald-400/60" : "hover:-translate-y-0.5"
-                }`}
-                title={listening ? "Stop mic" : "Start mic"}
-              >
-                <span className="relative">
-                  {listening && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.35)] animate-pulse" />
-                  )}
-                  <MicrophoneIcon className="h-5 w-5" />
-                </span>
-              </button>
-            )}
           </div>
           <p className={`mt-2 text-[11px] uppercase tracking-[0.25em] ${textSecondary}`}>
             Streaming via Gemini
