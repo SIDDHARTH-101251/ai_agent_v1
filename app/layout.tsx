@@ -13,9 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gemini Agent Chat",
-  description:
-    "Agentic AI chat scaffold with Next.js, Prisma/Postgres, NextAuth email, and Gemini streaming.",
+  title: "Siddharth AI Chat",
+  description: "A focused AI chat workspace with streaming replies and pinned insights.",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

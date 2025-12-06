@@ -29,19 +29,20 @@ export async function PATCH(request: Request) {
   }
 
   let existingPrefs: Record<string, unknown> = {};
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { profileSummary: true },
-    });
-    if (user?.profileSummary) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { profileSummary: true },
+  });
+  if (user?.profileSummary) {
+    try {
       const parsed = JSON.parse(user.profileSummary);
       if (parsed && typeof parsed === "object") {
         existingPrefs = parsed as Record<string, unknown>;
       }
+    } catch {
+      // ignore invalid legacy profileSummary values
+      existingPrefs = {};
     }
-  } catch (err) {
-    console.error("prefs-read", err);
   }
 
   const mergedPrefs =

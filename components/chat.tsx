@@ -1313,16 +1313,28 @@ export function Chat({
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
-          className="fixed left-3 top-16 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur hover:-translate-y-0.5"
+          className={`fixed left-3 top-16 z-30 flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur hover:-translate-y-0.5 ${
+            isDark
+              ? "border border-white/20 bg-white/10 text-white"
+              : "border border-slate-300 bg-white text-slate-900 shadow-slate-200"
+          }`}
         >
-          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-black/40">
+          <span
+            className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border ${
+              isDark ? "border-white/20 bg-black/40" : "border-slate-200 bg-slate-50"
+            }`}
+          >
             {avatarUrl ? (
               <img src={avatarUrl} alt="User avatar" className="h-full w-full object-cover" />
             ) : (
-              <span className="text-sm">{userInitial}</span>
+              <span className={`${isDark ? "text-white" : "text-slate-800"} text-sm`}>
+                {userInitial}
+              </span>
             )}
           </span>
-          <span className="max-w-[120px] truncate">{userName ? formatTitle(userName) : "Welcome"}</span>
+          <span className={`max-w-[120px] truncate ${isDark ? "text-white" : "text-slate-800"}`}>
+            {userName ? formatTitle(userName) : "Welcome"}
+          </span>
         </button>
       )}
       {!isDesktop && sidebarOpen && (
