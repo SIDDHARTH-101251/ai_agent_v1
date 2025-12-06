@@ -9,8 +9,13 @@ import { HumanMessage } from "@langchain/core/messages";
 export async function POST(req: NextRequest) {
   const session = await getAuthSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
+  const hasIdentity = Boolean(
+    userId ||
+      (session?.user as { email?: string } | undefined)?.email ||
+      (session?.user as { name?: string } | undefined)?.name
+  );
 
-  if (!session?.user?.email || !userId) {
+  if (!hasIdentity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -22,16 +27,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
   }
 
+  const ownerId = userId ?? "anonymous";
+
   let conversation =
     existingConversationId &&
     (await prisma.conversation.findFirst({
-      where: { id: existingConversationId, userId },
+      where: { id: existingConversationId, userId: ownerId },
     }));
 
   if (!conversation) {
     conversation = await prisma.conversation.create({
       data: {
-        userId,
+        userId: ownerId,
         title: prompt.slice(0, 60),
       },
     });
@@ -69,7 +76,7 @@ export async function POST(req: NextRequest) {
           prompt,
           history: [...recentHistory, userMessage],
           threadId: conversation!.id,
-          userId,
+          userId: ownerId,
           onToken: (token) => {
             assistantBuffer.push(token);
             controller.enqueue(encoder.encode(token));

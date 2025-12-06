@@ -5,8 +5,12 @@ import { prisma } from "@/lib/prisma";
 export async function PATCH(request: Request) {
   const session = await getAuthSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
+  const hasIdentity =
+    userId ||
+    (session?.user as { email?: string } | undefined)?.email ||
+    (session?.user as { name?: string } | undefined)?.name;
 
-  if (!session?.user?.email || !userId) {
+  if (!hasIdentity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

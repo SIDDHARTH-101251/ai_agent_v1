@@ -4,7 +4,10 @@ import { Suspense } from "react";
 
 export default function SignInPage() {
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-900 px-6 py-12 text-white">
+    <div
+      className="relative h-screen min-h-screen max-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-900 px-6 py-12 text-white md:h-auto md:max-h-none md:min-h-screen"
+      style={{ height: "100vh" }}
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(99,102,241,0.18),transparent_30%)]" />
       <div className="absolute inset-8 rounded-[36px] border border-white/5 bg-white/5 blur-3xl" />
       <div className="relative z-10 mx-auto flex max-w-5xl flex-col gap-8">
@@ -13,22 +16,22 @@ export default function SignInPage() {
             <div className="space-y-6">
               <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-100">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.3)]" />
-                Welcome back
+                Welcome
               </span>
               <div className="space-y-3">
                 <h1 className="text-4xl font-semibold leading-tight text-white">
-                  Sign in to your workspace
+                  Sign in or create your account
                 </h1>
                 <p className="text-slate-200/90">
-                  One email, one magic link. No extra friction.
+                  Use a username and password to log in. New here? Register on the same form.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
-                  Email auth
+                  Username login
                 </span>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
-                  Instant access
+                  Quick access
                 </span>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
                   Secure by default

@@ -26,7 +26,10 @@ export default async function Home() {
 
   if (!session || !userId) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-900 px-6 text-white">
+      <div
+        className="relative flex h-screen min-h-screen max-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-900 px-6 text-white md:h-auto md:max-h-none md:min-h-screen"
+        style={{ height: "100vh" }}
+      >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.12),transparent_35%),radial-gradient(circle_at_85%_0%,rgba(99,102,241,0.25),transparent_32%)]" />
         <div className="absolute inset-10 rounded-[40px] border border-white/5 bg-white/5 blur-3xl" />
         <div className="relative z-10 w-full max-w-4xl space-y-8 text-center">

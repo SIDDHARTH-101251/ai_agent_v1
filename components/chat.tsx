@@ -1740,7 +1740,7 @@ export function Chat({
                 </select>
               </div>
               <button
-                onClick={() => signOut({ callbackUrl: "/" })}
+                onClick={() => signOut({ callbackUrl: "/auth/signin" })}
                 className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 ${theme.accent}`}
                 title="Sign out"
               >
@@ -1776,7 +1776,7 @@ export function Chat({
                 A+
               </button>
               <button
-                onClick={() => signOut({ callbackUrl: "/" })}
+                onClick={() => signOut({ callbackUrl: "/auth/signin" })}
                 className={iconBtn}
                 title="Sign out"
               >
