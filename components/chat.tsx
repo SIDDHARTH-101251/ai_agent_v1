@@ -561,6 +561,24 @@ export function Chat({
       .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : ""))
       .join(" ");
   };
+  const normalizeForSpeech = (value: string) => {
+    return value
+      // Strip code fences and inline code.
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]*)`/g, "$1")
+      // Strip markdown emphasis/links.
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/[*_~]/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      // Remove blockquote/heading markers and list bullets.
+      .replace(/^>+\s?/gm, "")
+      .replace(/^#{1,6}\s*/gm, "")
+      .replace(/^\s*[-+]\s+/gm, "")
+      // Collapse whitespace.
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  };
   const wasListeningDuringSpeak = useRef(false);
   const listeningRef = useRef(false);
   const pendingTranscriptRef = useRef<string | null>(null);
@@ -1112,7 +1130,8 @@ export function Chat({
 
   const speak = (text: string, opts?: { replace?: boolean }) => {
     if (typeof window === "undefined" || !voiceEnabled) return;
-    const trimmed = text.trim();
+    const normalized = normalizeForSpeech(text);
+    const trimmed = normalized.trim();
     if (!trimmed) return;
     const utterance = new SpeechSynthesisUtterance(trimmed);
     utterance.rate = 1;
