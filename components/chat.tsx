@@ -595,13 +595,6 @@ export function Chat({
         resizeTextarea(transcript);
         if (lastResult.isFinal) {
           pendingTranscriptRef.current = transcript;
-          const snapshot = transcript;
-          setTimeout(() => {
-            // Avoid double send if a newer transcript arrived.
-            if (pendingTranscriptRef.current !== snapshot) return;
-            pendingTranscriptRef.current = null;
-            sendMessage(snapshot);
-          }, 200);
         }
       };
       recog.onerror = () => {
@@ -614,6 +607,7 @@ export function Chat({
         if (finalText) {
           setInput(finalText);
           resizeTextarea(finalText);
+          // Send once per utterance after it finishes.
           sendMessage(finalText);
         }
         if (listeningRef.current && isDesktop) {
