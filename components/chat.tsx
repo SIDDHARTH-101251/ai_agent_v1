@@ -619,14 +619,18 @@ export function Chat({
     if (isDesktop) return;
     let startX = 0;
     let startY = 0;
-    const threshold = 50;
-    const edgeTolerance = 30;
+    let trackingHorizontal = false;
+    let handled = false;
+    const threshold = 28;
+    const edgeTolerance = 60;
 
     const handleStart = (e: TouchEvent) => {
       const t = e.touches?.[0];
       if (!t) return;
       startX = t.clientX;
       startY = t.clientY;
+      trackingHorizontal = false;
+      handled = false;
     };
 
     const handleMove = (e: TouchEvent) => {
@@ -634,17 +638,27 @@ export function Chat({
       if (!t) return;
       const dx = t.clientX - startX;
       const dy = t.clientY - startY;
-      if (Math.abs(dx) < Math.abs(dy)) return;
-      // Swipe right from edge to open
-      if (!sidebarOpen && startX < edgeTolerance && dx > threshold) {
+
+      if (!trackingHorizontal) {
+        if (Math.abs(dx) > Math.abs(dy) + 6) {
+          trackingHorizontal = true;
+        } else if (Math.abs(dy) > 10) {
+          return;
+        }
+      }
+      if (!trackingHorizontal || handled) return;
+
+      if (!sidebarOpen && startX <= edgeTolerance && dx > threshold) {
+        handled = true;
         setSidebarOpen(true);
         setActiveConversationActions(null);
         setRenameTargetId(null);
         setOpenSummaryId(null);
         return;
       }
-      // Swipe left to close
+
       if (sidebarOpen && dx < -threshold) {
+        handled = true;
         setSidebarOpen(false);
         setActiveConversationActions(null);
         setRenameTargetId(null);
@@ -655,6 +669,8 @@ export function Chat({
     const handleEnd = () => {
       startX = 0;
       startY = 0;
+      trackingHorizontal = false;
+      handled = false;
     };
 
     window.addEventListener("touchstart", handleStart, { passive: true });
