@@ -10,6 +10,7 @@ import {
   BookmarkIcon,
   ChevronLeftIcon,
   InformationCircleIcon,
+  PhotoIcon,
   MicrophoneIcon,
   ChartBarIcon,
   PencilSquareIcon,
@@ -474,6 +475,7 @@ type Conversation = {
 
 type Props = {
   userName?: string | null;
+  userImage?: string | null;
   initialConversations: Conversation[];
   initialThemeName?: string;
   initialThemeMode?: string;
@@ -483,6 +485,7 @@ type Props = {
 
 export function Chat({
   userName,
+  userImage,
   initialConversations,
   initialThemeName,
   initialThemeMode,
@@ -531,6 +534,7 @@ export function Chat({
   const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(userImage ?? null);
   const [fontScale, setFontScale] = useState(() => {
     if (typeof window !== "undefined") {
       const stored = window.localStorage.getItem("chatFontScale");
@@ -608,6 +612,16 @@ export function Chat({
   const chipBorder = isDark ? "border-white/20" : "border-slate-300";
   const chipBg = isDark ? "bg-black/40" : "bg-white";
   const chipText = isDark ? "text-white" : "text-slate-900";
+  const userInitial =
+    userName && userName.trim()
+      ? formatTitle(userName)
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p) => p[0])
+          .join("")
+          .toUpperCase()
+      : "U";
   const iconBtn =
     `flex h-9 w-9 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs font-semibold ${textPrimary} transition ` +
     (isDark ? "hover:border-white hover:bg-white/10" : "hover:border-slate-400 hover:bg-white");
@@ -742,6 +756,25 @@ export function Chat({
         setActiveConversationActions(id);
       }
     }, 400);
+  };
+
+  const handleAvatarChange = async (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setAvatarUrl(dataUrl);
+      const res = await fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageDataUrl: dataUrl }),
+      });
+      if (!res.ok) return;
+      const payload = (await res.json().catch(() => ({}))) as { image?: string };
+      if (payload.image) {
+        setAvatarUrl(payload.image);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleConversationTouchEnd = () => {
@@ -1188,18 +1221,21 @@ export function Chat({
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   useEffect(() => {
-    // Restore last opened conversation on mount (client-side).
     if (typeof window === "undefined") return;
     const lastId = window.localStorage.getItem("lastConversationId");
     if (lastId) {
-      const found = initialConversations.find((c) => c.id === lastId);
-      if (found) {
-        setConversationId(found.id);
-        setMessages(found.messages ?? []);
-        conversationIdRef.current = found.id;
+      const target = initialConversations.find((c) => c.id === lastId);
+      if (target) {
+        setConversationId(target.id);
+        setMessages(target.messages ?? []);
+        conversationIdRef.current = target.id;
       }
     }
   }, [initialConversations]);
+
+  useEffect(() => {
+    setAvatarUrl(userImage ?? null);
+  }, [userImage]);
 
   const startListening = () => {
     if (typeof window === "undefined") return;
@@ -1274,6 +1310,21 @@ export function Chat({
       className={`flex h-screen w-full overflow-hidden bg-gradient-to-br ${theme.bg} ${textPrimary} transition-colors duration-200`}
       style={{ fontSize: `${fontScale}rem` }}
     >
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="fixed left-3 top-16 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur hover:-translate-y-0.5"
+        >
+          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-black/40">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="User avatar" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-sm">{userInitial}</span>
+            )}
+          </span>
+          <span className="max-w-[120px] truncate">{userName ? formatTitle(userName) : "Welcome"}</span>
+        </button>
+      )}
       {!isDesktop && sidebarOpen && (
         <button
           aria-label="Close sidebar overlay"
@@ -1304,17 +1355,36 @@ export function Chat({
         }`}
       >
         <div className="flex items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: headerBorderColor }}>
-          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-slate-100"}`}>
-            <UserIcon className={`h-5 w-5 ${textPrimary}`} />
-          </div>
+          <label
+            htmlFor="avatar-upload"
+            className={`relative flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-full border ${chipBorder} ${chipBg} shadow`}
+          >
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="User avatar" className="h-full w-full object-cover" />
+            ) : (
+              <UserIcon className={`h-5 w-5 ${textPrimary}`} />
+            )}
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  void handleAvatarChange(file);
+                }
+              }}
+            />
+            {!avatarUrl && (
+              <span className="absolute -bottom-1 right-0 rounded-full bg-emerald-500 p-1 shadow">
+                <PhotoIcon className="h-3 w-3 text-white" />
+              </span>
+            )}
+          </label>
           <div className="min-w-0 flex-1">
-            <p
-              className={`text-xs uppercase tracking-[0.25em] ${textSecondary}`}
-            >
-              Gemini Agent
-            </p>
             <p className={`truncate text-base font-semibold ${textPrimary}`}>
-              {userName ? userName : "Welcome"}
+              {userName ? formatTitle(userName) : "Welcome"}
             </p>
           </div>
         </div>
@@ -1605,11 +1675,11 @@ export function Chat({
           style={{ borderColor: headerBorderColor }}
         >
           <div className="min-w-0">
-            <p className={`text-sm uppercase tracking-[0.2em] ${textSecondary}`}>
+            <p className={`text-xs uppercase tracking-[0.2em] ${textSecondary}`}>
               Conversation
             </p>
             <div className="flex items-center gap-2">
-              <h1 className={`text-2xl font-semibold ${textPrimary} truncate`}>
+              <h1 className={`text-xl font-semibold ${textPrimary} truncate`}>
                 {currentTitle}
               </h1>
               {listening && (
@@ -1873,17 +1943,28 @@ export function Chat({
                     {pinnedIds.has(msg.id) ? "Unpin" : "Pin"}
                   </button>
                   <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none leading-relaxed prose-p:my-1 prose-pre:bg-slate-900/70 prose-code:text-[13px]`}>
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        p: ({ node, ...props }) => <p {...props} className="my-1" />,
-                      }}
-                    >
-                      {msg.content ||
-                        (isStreaming && msg.role === "assistant"
-                          ? "Thinking…"
-                          : "")}
-                    </ReactMarkdown>
+                    {(!msg.content && isStreaming && msg.role === "assistant") ? (
+                      <div className="flex items-center gap-3 rounded-lg border border-emerald-300/40 bg-emerald-500/5 px-3 py-2 text-emerald-500">
+                        <div className="flex items-center gap-1">
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400" />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400 [animation-delay:120ms]" />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400 [animation-delay:240ms]" />
+                        </div>
+                        <span className="text-xs font-semibold tracking-[0.2em] uppercase">Thinking</span>
+                        <span className="flex flex-1 items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-emerald-300">
+                          <span className="h-px flex-1 animate-pulse rounded-full bg-emerald-300/60" />
+                        </span>
+                      </div>
+                    ) : (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ node, ...props }) => <p {...props} className="my-1" />,
+                        }}
+                      >
+                        {msg.content || ""}
+                      </ReactMarkdown>
+                    )}
                   </div>
                 </div>
               </div>

@@ -9,6 +9,12 @@ export default async function Home() {
   const profileSummary =
     (session?.user as { profileSummary?: string } | undefined)?.profileSummary ??
     null;
+  const userImageRecord = userId
+    ? await prisma.user.findUnique({
+        where: { id: userId },
+        select: { image: true },
+      })
+    : null;
 
   const initialFontScale = (() => {
     if (!profileSummary) return undefined;
@@ -27,49 +33,52 @@ export default async function Home() {
   if (!session || !userId) {
     return (
       <div
-        className="relative flex h-screen min-h-screen max-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-900 px-6 text-white md:h-auto md:max-h-none md:min-h-screen"
+        className="relative flex h-screen min-h-screen max-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-900 px-4 text-white md:h-auto md:max-h-none md:min-h-screen"
         style={{ height: "100vh" }}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.12),transparent_35%),radial-gradient(circle_at_85%_0%,rgba(99,102,241,0.25),transparent_32%)]" />
-        <div className="absolute inset-10 rounded-[40px] border border-white/5 bg-white/5 blur-3xl" />
-        <div className="relative z-10 w-full max-w-4xl space-y-8 text-center">
-          <div className="flex justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-100">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.3)]" />
-              Live workspace
-            </span>
-          </div>
-          <h1 className="text-5xl font-semibold leading-tight text-white sm:text-6xl">
-            AI chat, tuned for focus.
-          </h1>
-          <p className="text-lg text-slate-200/90">
-            Minimal surface, fast streaming, email magic links. Drop straight
-            into the chat experience.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link
-              href="/auth/signin"
-              className="rounded-full bg-white px-7 py-3 text-sm font-semibold text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-100"
-            >
-              Enter workspace
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-4 text-left sm:grid-cols-3">
-            {[
-              { title: "Streaming", detail: "Token-by-token replies" },
-              { title: "Threaded", detail: "Saved conversations & pins" },
-              { title: "Secure", detail: "Email-only sign in" },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="rounded-2xl border border-white/10 bg-white/5 p-4"
-              >
-                <p className="text-sm uppercase tracking-[0.18em] text-indigo-100">
-                  {item.title}
-                </p>
-                <p className="mt-2 text-sm text-slate-200/90">{item.detail}</p>
+        <div className="absolute inset-6 rounded-[28px] border border-white/5 bg-white/5 blur-2xl" />
+        <div className="relative z-10 w-full max-w-4xl">
+          <div className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-white/5/70 px-5 py-8 shadow-2xl backdrop-blur md:px-10 md:py-12">
+            <div className="space-y-5 text-center">
+              <div className="flex justify-center">
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-100">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.3)]" />
+                  Live workspace
+                </span>
               </div>
-            ))}
+              <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">
+                AI chat, tuned for focus.
+              </h1>
+              <p className="text-sm text-slate-200/90 sm:text-base">
+                Minimal surface, fast streaming, instant access. Drop straight into the chat experience.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Link
+                  href="/auth/signin"
+                  className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-100"
+                >
+                  Enter workspace
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
+                {[
+                  { title: "Streaming", detail: "Token-by-token replies" },
+                  { title: "Threaded", detail: "Saved conversations & pins" },
+                  { title: "Secure", detail: "Credentials sign in" },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    className="rounded-2xl border border-white/10 bg-white/5 p-3"
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-indigo-100">
+                      {item.title}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-200/90">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -114,6 +123,7 @@ export default async function Home() {
   return (
     <Chat
       userName={session.user?.name ?? session.user?.email}
+      userImage={userImageRecord?.image ?? session.user?.image ?? null}
       initialConversations={initialConversations}
       initialThemeName={
         typeof (session.user as { themeName?: string } | undefined)?.themeName ===

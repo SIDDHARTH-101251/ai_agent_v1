@@ -100,6 +100,7 @@ export const authOptions: NextAuthOptions = {
           username?: string | null;
           name?: string | null;
           email?: string | null;
+          image?: string | null;
         };
         token.id = anyUser.id;
         token.name = anyUser.username ?? anyUser.name ?? token.name;
@@ -107,6 +108,7 @@ export const authOptions: NextAuthOptions = {
         token.themeName = anyUser.themeName;
         token.themeMode = anyUser.themeMode;
         token.profileSummary = anyUser.profileSummary ?? null;
+        token.picture = anyUser.image ?? token.picture;
       }
       return token;
     },
@@ -118,12 +120,14 @@ export const authOptions: NextAuthOptions = {
           themeMode?: string;
           profileSummary?: string | null;
           name?: string | null;
+          image?: string | null;
         };
         u.id = token.id as string | undefined;
         u.themeName = (token as any).themeName;
         u.themeMode = (token as any).themeMode;
         u.profileSummary = (token as any).profileSummary ?? null;
         u.name = (token.name as string) ?? u.name ?? null;
+        u.image = (token.picture as string) ?? u.image ?? null;
       }
       return session;
     },

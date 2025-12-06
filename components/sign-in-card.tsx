@@ -17,6 +17,9 @@ export function SignInCard() {
     e.preventDefault();
     setStatus("loading");
     setError(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("lastConversationId");
+    }
     const result = await signIn("credentials", {
       username,
       password,
