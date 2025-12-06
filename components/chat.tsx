@@ -12,6 +12,7 @@ import {
   InformationCircleIcon,
   MicrophoneIcon,
   ChartBarIcon,
+  PencilSquareIcon,
   PaperAirplaneIcon,
   SpeakerWaveIcon,
   SwatchIcon,
@@ -527,6 +528,9 @@ export function Chat({
   const [dashboardWidth, setDashboardWidth] = useState(380);
   const dashboardWidthRef = useRef(380);
   const [isResizingDashboard, setIsResizingDashboard] = useState(false);
+  const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [fontScale, setFontScale] = useState(() => {
     if (typeof window !== "undefined") {
       const stored = window.localStorage.getItem("chatFontScale");
@@ -644,7 +648,13 @@ export function Chat({
   const handleConversationTouchStart = (id: string) => {
     clearConversationPressTimer();
     conversationPressTimer.current = window.setTimeout(() => {
-      setActiveConversationActions(id);
+      setOpenSummaryId(null);
+      setRenameTargetId(null);
+      if (!isDesktop) {
+        startRename(id);
+      } else {
+        setActiveConversationActions(id);
+      }
     }, 400);
   };
 
@@ -874,6 +884,44 @@ export function Chat({
       console.error(err);
       setError(err instanceof Error ? err.message : "Unexpected error");
     }
+  };
+
+  const renameConversation = async (id: string, nextTitle: string) => {
+    const trimmed = nextTitle.trim();
+    if (!trimmed) return;
+    try {
+      setRenamingId(id);
+      setError(null);
+      const res = await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error ?? "Failed to rename conversation");
+      }
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c))
+      );
+      setRenameTargetId(null);
+      setRenameValue("");
+      setActiveConversationActions(null);
+      if (conversationId === id) {
+        setConversationId(id);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    } finally {
+      setRenamingId((prev) => (prev === id ? null : prev));
+    }
+  };
+
+  const startRename = (id: string) => {
+    const existing = conversations.find((c) => c.id === id);
+    setRenameTargetId(id);
+    setRenameValue(existing?.title?.trim() || "Untitled Conversation");
   };
 
   const togglePin = (id: string) => {
@@ -1219,6 +1267,12 @@ export function Chat({
                 onTouchStart={() => handleConversationTouchStart(c.id)}
                 onTouchEnd={handleConversationTouchEnd}
                 onTouchCancel={handleConversationTouchEnd}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setActiveConversationActions(c.id);
+                  setRenameTargetId(null);
+                  setOpenSummaryId(null);
+                }}
               >
                 {isActive && (
                   <span className="absolute inset-y-2 left-1 w-1 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.25)]" />
@@ -1241,6 +1295,13 @@ export function Chat({
                 >
                   <div className="flex flex-col items-center gap-2 lg:flex-row">
                     <button
+                      onClick={() => startRename(c.id)}
+                      className={`hidden h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10 md:flex`}
+                    >
+                      <PencilSquareIcon className="h-4 w-4" />
+                      <span className="sr-only">Rename</span>
+                    </button>
+                    <button
                       onClick={() => deleteConversation(c.id)}
                       className={`flex h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10`}
                     >
@@ -1256,6 +1317,25 @@ export function Chat({
                     </button>
                   </div>
                 </div>
+                {renamingId === c.id && (
+                  <div
+                    className={`pointer-events-none absolute -bottom-2 right-3 flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold ${
+                      isDark
+                        ? "bg-emerald-900/60 text-emerald-200 ring-1 ring-emerald-300/40"
+                        : "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
+                    } animate-pulse`}
+                  >
+                    <span className="flex items-center gap-1">
+                      <span aria-hidden>⌫</span>
+                      <span>Erasing</span>
+                    </span>
+                    <span aria-hidden className="text-xs text-emerald-400">•</span>
+                    <span className="flex items-center gap-1">
+                      <span aria-hidden>✍️</span>
+                      <span>Writing</span>
+                    </span>
+                  </div>
+                )}
 
                 {openSummaryId === c.id && (
                   <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-white/20 bg-black/80 p-3 text-xs text-white shadow-xl backdrop-blur">
@@ -1271,6 +1351,82 @@ export function Chat({
                     <p className="mt-2 whitespace-pre-wrap text-[12px] leading-relaxed text-slate-200">
                       {c.summary?.trim() || "No summary yet."}
                     </p>
+                  </div>
+                )}
+                {renameTargetId === c.id && (
+                  <div
+                    className={`absolute right-0 top-full z-40 mt-2 w-64 rounded-xl border p-3 text-xs shadow-xl backdrop-blur ${
+                      isDark
+                        ? "border-white/20 bg-black/85 text-white"
+                        : "border-slate-200/90 bg-white text-slate-900"
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-[11px] uppercase tracking-[0.2em] ${
+                          isDark ? "text-slate-200" : "text-slate-600"
+                        }`}
+                      >
+                        Rename Chat
+                      </span>
+                      <button
+                        onClick={() => {
+                          setRenameTargetId(null);
+                          setRenameValue("");
+                        }}
+                        className={`text-[11px] font-semibold ${
+                          isDark
+                            ? "text-slate-200 hover:text-white"
+                            : "text-slate-600 hover:text-slate-800"
+                        }`}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          setRenameTargetId(null);
+                          setRenameValue("");
+                          void renameConversation(c.id, renameValue);
+                        }
+                        if (e.key === "Escape") {
+                          setRenameTargetId(null);
+                          setRenameValue("");
+                        }
+                      }}
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-2 ring-transparent transition focus:border-emerald-300 focus:ring-emerald-200 dark:border-white/15 dark:bg-slate-800 dark:text-white dark:focus:border-emerald-400 dark:focus:ring-emerald-300/40"
+                      placeholder="Conversation title"
+                      autoFocus
+                    />
+                    <div className="mt-2 flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setRenameTargetId(null);
+                          setRenameValue("");
+                        }}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          isDark
+                            ? "text-slate-200 hover:bg-white/10"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        Close
+                      </button>
+                      <button
+                        onClick={() => {
+                          setRenameTargetId(null);
+                          setRenameValue("");
+                          void renameConversation(c.id, renameValue);
+                        }}
+                        className="rounded-full bg-emerald-500 px-4 py-1 text-xs font-semibold text-white transition hover:bg-emerald-400"
+                      >
+                        Save
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
