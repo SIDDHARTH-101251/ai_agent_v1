@@ -615,6 +615,58 @@ export function Chat({
     el.style.height = `${Math.max(next, 60)}px`;
   };
 
+  useEffect(() => {
+    if (isDesktop) return;
+    let startX = 0;
+    let startY = 0;
+    const threshold = 50;
+    const edgeTolerance = 30;
+
+    const handleStart = (e: TouchEvent) => {
+      const t = e.touches?.[0];
+      if (!t) return;
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+
+    const handleMove = (e: TouchEvent) => {
+      const t = e.touches?.[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.abs(dx) < Math.abs(dy)) return;
+      // Swipe right from edge to open
+      if (!sidebarOpen && startX < edgeTolerance && dx > threshold) {
+        setSidebarOpen(true);
+        setActiveConversationActions(null);
+        setRenameTargetId(null);
+        setOpenSummaryId(null);
+        return;
+      }
+      // Swipe left to close
+      if (sidebarOpen && dx < -threshold) {
+        setSidebarOpen(false);
+        setActiveConversationActions(null);
+        setRenameTargetId(null);
+        setOpenSummaryId(null);
+      }
+    };
+
+    const handleEnd = () => {
+      startX = 0;
+      startY = 0;
+    };
+
+    window.addEventListener("touchstart", handleStart, { passive: true });
+    window.addEventListener("touchmove", handleMove, { passive: true });
+    window.addEventListener("touchend", handleEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", handleStart);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleEnd);
+    };
+  }, [isDesktop, sidebarOpen]);
+
   const clearMessagePressTimer = () => {
     if (messagePressTimer.current) {
       clearTimeout(messagePressTimer.current);
@@ -1194,15 +1246,6 @@ export function Chat({
           className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
-      <button
-        aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-        onClick={() => setSidebarOpen((s) => !s)}
-        className="fixed left-3 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-lg backdrop-blur transition hover:-translate-y-0.5 lg:hidden"
-      >
-        <ChevronLeftIcon
-          className={`h-4 w-4 transition ${sidebarOpen ? "" : "rotate-180"}`}
-        />
-      </button>
       <button
         aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
         onClick={() => setSidebarOpen((s) => !s)}
