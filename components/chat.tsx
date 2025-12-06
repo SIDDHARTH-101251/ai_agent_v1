@@ -163,6 +163,7 @@ export function Chat({
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [listening, setListening] = useState(false);
   const wasListeningDuringSpeak = useRef(false);
+  const listeningRef = useRef(false);
   const conversationIdRef = useRef<string | null>(
     initialConversations[0]?.id ?? null
   );
@@ -572,22 +573,28 @@ export function Chat({
           }, 200);
         }
       };
-      recog.onerror = () => setListening(false);
+      recog.onerror = () => {
+        listeningRef.current = false;
+        setListening(false);
+      };
       recog.onend = () => {
-        if (voiceEnabled && listening) {
+        if (listeningRef.current) {
           recog.start();
-        } else {
-          setListening(false);
+          return;
         }
+        listeningRef.current = false;
+        setListening(false);
       };
       recognitionRef.current = recog;
     }
+    listeningRef.current = true;
     setListening(true);
     recognitionRef.current.start();
   };
 
   const stopListening = () => {
     recognitionRef.current?.stop();
+    listeningRef.current = false;
     setListening(false);
   };
 
