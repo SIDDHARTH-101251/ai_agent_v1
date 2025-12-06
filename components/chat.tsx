@@ -578,7 +578,7 @@ export function Chat({
         setListening(false);
       };
       recog.onend = () => {
-        if (listeningRef.current) {
+        if (listeningRef.current && isDesktop) {
           recog.start();
           return;
         }
@@ -789,18 +789,6 @@ export function Chat({
                 title="Toggle voice playback"
               >
                 <SpeakerWaveIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => (listening ? stopListening() : startListening())}
-                className={`${iconBtn} h-10 w-10 ${listening ? "bg-red-500/30 border-red-400" : ""}`}
-                title={listening ? "Stop mic" : "Start mic"}
-              >
-                <span className="relative">
-                  {listening && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.35)] animate-pulse" />
-                  )}
-                  <MicrophoneIcon className="h-4 w-4" />
-                </span>
               </button>
             </div>
           </aside>
@@ -1094,7 +1082,7 @@ export function Chat({
               {error}
             </div>
           )}
-          <div className="flex items-end gap-3">
+          <div className="relative flex items-end gap-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -1134,6 +1122,22 @@ export function Chat({
                 </span>
               )}
             </button>
+            {!isDesktop && (
+              <button
+                onClick={() => (listening ? stopListening() : startListening())}
+                className={`absolute -top-14 right-3 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/60 text-white shadow-lg backdrop-blur transition ${
+                  listening ? "ring-2 ring-emerald-400/60" : "hover:-translate-y-0.5"
+                }`}
+                title={listening ? "Stop mic" : "Start mic"}
+              >
+                <span className="relative">
+                  {listening && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.35)] animate-pulse" />
+                  )}
+                  <MicrophoneIcon className="h-5 w-5" />
+                </span>
+              </button>
+            )}
           </div>
           <p className={`mt-2 text-[11px] uppercase tracking-[0.25em] ${textSecondary}`}>
             Streaming via Gemini
