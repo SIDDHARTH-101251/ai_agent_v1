@@ -7,7 +7,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   ArrowRightOnRectangleIcon,
-  Bars3CenterLeftIcon,
   BookmarkIcon,
   ChevronLeftIcon,
   InformationCircleIcon,
@@ -94,6 +93,363 @@ const THEMES = [
         accent: "bg-emerald-500 hover:bg-emerald-400",
         bubbleUser: "bg-emerald-500/85 text-white ring-emerald-300/40",
         bubbleAI: "bg-white/10 text-emerald-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Midnight",
+    mode: {
+      light: {
+        bg: "from-slate-100 via-white to-indigo-100",
+        card: "bg-white text-slate-900 ring-indigo-200/90",
+        accent: "bg-indigo-800 hover:bg-indigo-700",
+        bubbleUser: "bg-indigo-800 text-white ring-indigo-300/70",
+        bubbleAI: "bg-white text-slate-900 ring-indigo-200/80",
+        border: "border-indigo-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-indigo-950",
+        card: "bg-white/5 text-indigo-50 ring-white/15",
+        accent: "bg-fuchsia-500 hover:bg-fuchsia-400",
+        bubbleUser: "bg-fuchsia-500/85 text-white ring-fuchsia-300/40",
+        bubbleAI: "bg-white/10 text-indigo-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Coral",
+    mode: {
+      light: {
+        bg: "from-rose-50 via-white to-orange-50",
+        card: "bg-white text-rose-950 ring-rose-200/90",
+        accent: "bg-rose-500 hover:bg-rose-400",
+        bubbleUser: "bg-rose-500 text-white ring-rose-300/70",
+        bubbleAI: "bg-white text-rose-900 ring-rose-200/80",
+        border: "border-rose-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-rose-950",
+        card: "bg-white/5 text-rose-50 ring-rose-200/15",
+        accent: "bg-orange-500 hover:bg-orange-400",
+        bubbleUser: "bg-orange-500/85 text-white ring-orange-300/40",
+        bubbleAI: "bg-white/10 text-rose-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Glacier",
+    mode: {
+      light: {
+        bg: "from-sky-50 via-white to-cyan-50",
+        card: "bg-white text-slate-900 ring-cyan-200/90",
+        accent: "bg-cyan-600 hover:bg-cyan-500",
+        bubbleUser: "bg-cyan-600 text-white ring-cyan-300/70",
+        bubbleAI: "bg-white text-slate-900 ring-cyan-200/80",
+        border: "border-cyan-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-cyan-950",
+        card: "bg-white/5 text-slate-50 ring-white/15",
+        accent: "bg-cyan-500 hover:bg-cyan-400",
+        bubbleUser: "bg-cyan-500/85 text-white ring-cyan-300/40",
+        bubbleAI: "bg-white/10 text-slate-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Lavender",
+    mode: {
+      light: {
+        bg: "from-indigo-50 via-white to-purple-50",
+        card: "bg-white text-indigo-950 ring-indigo-200/90",
+        accent: "bg-purple-600 hover:bg-purple-500",
+        bubbleUser: "bg-purple-600 text-white ring-purple-300/70",
+        bubbleAI: "bg-white text-indigo-900 ring-indigo-200/80",
+        border: "border-indigo-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-purple-950",
+        card: "bg-white/5 text-indigo-50 ring-white/15",
+        accent: "bg-purple-500 hover:bg-purple-400",
+        bubbleUser: "bg-purple-500/85 text-white ring-purple-300/40",
+        bubbleAI: "bg-white/10 text-indigo-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Solar",
+    mode: {
+      light: {
+        bg: "from-yellow-50 via-amber-50 to-orange-50",
+        card: "bg-white text-amber-950 ring-amber-200/90",
+        accent: "bg-amber-500 hover:bg-amber-400",
+        bubbleUser: "bg-amber-500 text-white ring-amber-300/70",
+        bubbleAI: "bg-white text-amber-900 ring-amber-200/80",
+        border: "border-amber-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-amber-900",
+        card: "bg-white/5 text-amber-50 ring-amber-200/15",
+        accent: "bg-amber-400 hover:bg-amber-300",
+        bubbleUser: "bg-amber-400/85 text-amber-950 ring-amber-200/50",
+        bubbleAI: "bg-white/10 text-amber-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Neon",
+    mode: {
+      light: {
+        bg: "from-cyan-50 via-white to-fuchsia-50",
+        card: "bg-white text-teal-900 ring-teal-200/90",
+        accent: "bg-teal-500 hover:bg-teal-400",
+        bubbleUser: "bg-teal-500 text-white ring-teal-300/70",
+        bubbleAI: "bg-white text-teal-900 ring-teal-200/80",
+        border: "border-teal-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-teal-950",
+        card: "bg-white/5 text-teal-50 ring-white/15",
+        accent: "bg-fuchsia-500 hover:bg-fuchsia-400",
+        bubbleUser: "bg-fuchsia-500/85 text-white ring-fuchsia-300/40",
+        bubbleAI: "bg-white/10 text-teal-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Desert",
+    mode: {
+      light: {
+        bg: "from-amber-100 via-orange-50 to-stone-50",
+        card: "bg-white text-amber-950 ring-amber-200/90",
+        accent: "bg-amber-700 hover:bg-amber-600",
+        bubbleUser: "bg-amber-700 text-white ring-amber-300/70",
+        bubbleAI: "bg-white text-amber-900 ring-amber-200/80",
+        border: "border-amber-200/80",
+      },
+      dark: {
+        bg: "from-stone-950 via-stone-900 to-amber-900",
+        card: "bg-white/5 text-amber-50 ring-amber-200/15",
+        accent: "bg-amber-600 hover:bg-amber-500",
+        bubbleUser: "bg-amber-600/90 text-amber-50 ring-amber-300/40",
+        bubbleAI: "bg-white/10 text-amber-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Ocean",
+    mode: {
+      light: {
+        bg: "from-teal-50 via-white to-cyan-50",
+        card: "bg-white text-slate-900 ring-teal-200/90",
+        accent: "bg-teal-600 hover:bg-teal-500",
+        bubbleUser: "bg-teal-600 text-white ring-teal-300/70",
+        bubbleAI: "bg-white text-slate-900 ring-teal-200/80",
+        border: "border-teal-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-teal-950",
+        card: "bg-white/5 text-slate-50 ring-white/15",
+        accent: "bg-teal-500 hover:bg-teal-400",
+        bubbleUser: "bg-teal-500/85 text-white ring-teal-300/40",
+        bubbleAI: "bg-white/10 text-slate-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Mint",
+    mode: {
+      light: {
+        bg: "from-emerald-50 via-white to-lime-100",
+        card: "bg-white text-emerald-950 ring-emerald-200/90",
+        accent: "bg-emerald-500 hover:bg-emerald-400",
+        bubbleUser: "bg-emerald-500 text-white ring-emerald-300/70",
+        bubbleAI: "bg-white text-emerald-900 ring-emerald-200/80",
+        border: "border-emerald-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-emerald-950",
+        card: "bg-white/5 text-emerald-50 ring-emerald-200/15",
+        accent: "bg-emerald-400 hover:bg-emerald-300",
+        bubbleUser: "bg-emerald-400/90 text-emerald-950 ring-emerald-200/50",
+        bubbleAI: "bg-white/10 text-emerald-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Blush",
+    mode: {
+      light: {
+        bg: "from-pink-50 via-white to-rose-100",
+        card: "bg-white text-rose-950 ring-rose-200/90",
+        accent: "bg-pink-600 hover:bg-pink-500",
+        bubbleUser: "bg-pink-600 text-white ring-pink-300/70",
+        bubbleAI: "bg-white text-rose-900 ring-rose-200/80",
+        border: "border-rose-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-rose-950",
+        card: "bg-white/5 text-rose-50 ring-rose-200/15",
+        accent: "bg-pink-500 hover:bg-pink-400",
+        bubbleUser: "bg-pink-500/85 text-white ring-pink-300/40",
+        bubbleAI: "bg-white/10 text-rose-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Slate",
+    mode: {
+      light: {
+        bg: "from-slate-50 via-white to-gray-100",
+        card: "bg-white text-slate-950 ring-slate-200/90",
+        accent: "bg-slate-700 hover:bg-slate-600",
+        bubbleUser: "bg-slate-700 text-white ring-slate-300/70",
+        bubbleAI: "bg-white text-slate-900 ring-slate-200/80",
+        border: "border-slate-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-neutral-950",
+        card: "bg-white/5 text-slate-50 ring-white/15",
+        accent: "bg-slate-500 hover:bg-slate-400",
+        bubbleUser: "bg-slate-500/85 text-white ring-slate-300/40",
+        bubbleAI: "bg-white/10 text-slate-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Citrus",
+    mode: {
+      light: {
+        bg: "from-orange-50 via-white to-lime-50",
+        card: "bg-white text-lime-950 ring-lime-200/90",
+        accent: "bg-orange-500 hover:bg-orange-400",
+        bubbleUser: "bg-orange-500 text-white ring-orange-300/70",
+        bubbleAI: "bg-white text-lime-900 ring-lime-200/80",
+        border: "border-lime-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-lime-950",
+        card: "bg-white/5 text-lime-50 ring-lime-200/15",
+        accent: "bg-lime-500 hover:bg-lime-400",
+        bubbleUser: "bg-lime-500/85 text-lime-950 ring-lime-300/40",
+        bubbleAI: "bg-white/10 text-lime-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Royal",
+    mode: {
+      light: {
+        bg: "from-indigo-50 via-white to-purple-100",
+        card: "bg-white text-indigo-950 ring-indigo-200/90",
+        accent: "bg-indigo-700 hover:bg-indigo-600",
+        bubbleUser: "bg-indigo-700 text-white ring-indigo-300/70",
+        bubbleAI: "bg-white text-indigo-900 ring-indigo-200/80",
+        border: "border-indigo-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-indigo-900 to-purple-950",
+        card: "bg-white/5 text-indigo-50 ring-white/15",
+        accent: "bg-purple-500 hover:bg-purple-400",
+        bubbleUser: "bg-purple-500/85 text-white ring-purple-300/40",
+        bubbleAI: "bg-white/10 text-indigo-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Vapor",
+    mode: {
+      light: {
+        bg: "from-sky-50 via-white to-rose-50",
+        card: "bg-white text-slate-900 ring-sky-200/90",
+        accent: "bg-sky-400 hover:bg-sky-300",
+        bubbleUser: "bg-sky-400 text-white ring-sky-200/70",
+        bubbleAI: "bg-white text-slate-900 ring-sky-200/80",
+        border: "border-sky-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-rose-950",
+        card: "bg-white/5 text-slate-50 ring-white/15",
+        accent: "bg-rose-400 hover:bg-rose-300",
+        bubbleUser: "bg-rose-400/85 text-slate-900 ring-rose-200/50",
+        bubbleAI: "bg-white/10 text-slate-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Mono",
+    mode: {
+      light: {
+        bg: "from-gray-100 via-white to-gray-50",
+        card: "bg-white text-gray-900 ring-gray-200/90",
+        accent: "bg-gray-800 hover:bg-gray-700",
+        bubbleUser: "bg-gray-800 text-white ring-gray-300/70",
+        bubbleAI: "bg-white text-gray-900 ring-gray-200/80",
+        border: "border-gray-200/80",
+      },
+      dark: {
+        bg: "from-gray-950 via-gray-900 to-gray-950",
+        card: "bg-white/5 text-gray-50 ring-white/15",
+        accent: "bg-gray-600 hover:bg-gray-500",
+        bubbleUser: "bg-gray-600/85 text-white ring-gray-300/40",
+        bubbleAI: "bg-white/10 text-gray-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Copper",
+    mode: {
+      light: {
+        bg: "from-amber-50 via-stone-50 to-orange-100",
+        card: "bg-white text-amber-950 ring-amber-200/90",
+        accent: "bg-orange-800 hover:bg-orange-700",
+        bubbleUser: "bg-orange-800 text-white ring-orange-300/70",
+        bubbleAI: "bg-white text-amber-900 ring-amber-200/80",
+        border: "border-amber-200/80",
+      },
+      dark: {
+        bg: "from-stone-950 via-slate-900 to-amber-900",
+        card: "bg-white/5 text-amber-50 ring-amber-200/15",
+        accent: "bg-orange-600 hover:bg-orange-500",
+        bubbleUser: "bg-orange-600/90 text-white ring-orange-300/40",
+        bubbleAI: "bg-white/10 text-amber-50 ring-white/15",
+        border: "border-white/10",
+      },
+    },
+  },
+  {
+    name: "Orchid",
+    mode: {
+      light: {
+        bg: "from-fuchsia-50 via-white to-purple-100",
+        card: "bg-white text-fuchsia-950 ring-fuchsia-200/90",
+        accent: "bg-fuchsia-600 hover:bg-fuchsia-500",
+        bubbleUser: "bg-fuchsia-600 text-white ring-fuchsia-300/70",
+        bubbleAI: "bg-white text-fuchsia-900 ring-fuchsia-200/80",
+        border: "border-fuchsia-200/80",
+      },
+      dark: {
+        bg: "from-slate-950 via-slate-900 to-fuchsia-950",
+        card: "bg-white/5 text-fuchsia-50 ring-fuchsia-200/15",
+        accent: "bg-fuchsia-500 hover:bg-fuchsia-400",
+        bubbleUser: "bg-fuchsia-500/85 text-white ring-fuchsia-300/40",
+        bubbleAI: "bg-white/10 text-fuchsia-50 ring-white/15",
         border: "border-white/10",
       },
     },
@@ -193,6 +549,14 @@ export function Chat({
     ];
     return options[Math.floor(Math.random() * options.length)];
   }, []);
+  const formatTitle = (value?: string | null) => {
+    if (!value) return "";
+    return value
+      .trim()
+      .split(/\s+/)
+      .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : ""))
+      .join(" ");
+  };
   const wasListeningDuringSpeak = useRef(false);
   const listeningRef = useRef(false);
   const pendingTranscriptRef = useRef<string | null>(null);
@@ -206,10 +570,11 @@ export function Chat({
   const pinnedLayoutRef = useRef<HTMLDivElement>(null);
 
   const currentTitle = useMemo(() => {
-    if (!conversationId) return "New chat";
+    if (!conversationId) return "New Chat";
     const active = conversations.find((c) => c.id === conversationId);
-    if (!active) return "New chat";
-    return active.title || "Untitled conversation";
+    if (!active) return "New Chat";
+    const formatted = formatTitle(active.title);
+    return formatted || "Untitled Conversation";
   }, [conversationId, conversations]);
 
   const theme = THEMES[themeIndex].mode[themeMode];
@@ -221,12 +586,20 @@ export function Chat({
   const chipBorder = isDark ? "border-white/20" : "border-slate-300";
   const chipBg = isDark ? "bg-black/40" : "bg-white";
   const chipText = isDark ? "text-white" : "text-slate-900";
-  const headerBtn =
-    `rounded-full border ${chipBorder} px-3 py-2 text-xs font-semibold ${textPrimary} transition ` +
-    (isDark ? "hover:border-white hover:bg-white/10" : "hover:border-slate-400 hover:bg-white");
   const iconBtn =
     `flex h-9 w-9 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs font-semibold ${textPrimary} transition ` +
     (isDark ? "hover:border-white hover:bg-white/10" : "hover:border-slate-400 hover:bg-white");
+  const toolbarShell = `flex items-center gap-1 rounded-full border ${panelBorder} ${
+    isDark ? "bg-white/10" : "bg-white/70"
+  } px-2 py-1 text-xs font-semibold ${textPrimary} shadow-sm backdrop-blur`;
+  const toggleBase = "flex items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold transition";
+  const toggleIdle = isDark ? "text-white/90 hover:bg-white/10" : "text-slate-800 hover:bg-slate-100";
+  const toggleActive = isDark
+    ? "bg-emerald-500/15 text-emerald-50 ring-1 ring-emerald-300/60"
+    : "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-300/60";
+  const toggleAlert = isDark
+    ? "bg-rose-500/20 text-rose-50 ring-1 ring-rose-300/60"
+    : "bg-rose-100 text-rose-900 ring-1 ring-rose-300/60";
   const headerBorderColor = isDark
     ? "rgba(255,255,255,0.15)"
     : "rgba(0,0,0,0.1)";
@@ -782,6 +1155,17 @@ export function Chat({
           className={`h-4 w-4 transition ${sidebarOpen ? "" : "rotate-180"}`}
         />
       </button>
+      <button
+        aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+        onClick={() => setSidebarOpen((s) => !s)}
+        className={`fixed left-2 top-1/2 z-40 hidden -translate-y-1/2 items-center justify-center rounded-full border ${chipBorder} ${chipBg} p-3 shadow-lg backdrop-blur transition hover:-translate-y-[52%] lg:flex ${
+          sidebarOpen ? "" : "shadow-emerald-200/40"
+        }`}
+      >
+        <ChevronLeftIcon
+          className={`h-5 w-5 transition ${sidebarOpen ? "" : "rotate-180"}`}
+        />
+      </button>
       <aside
         className={`fixed inset-y-0 left-0 z-30 flex h-full w-[80vw] max-w-xs flex-col gap-4 overflow-hidden border-b ${theme.border} ${theme.card} px-5 py-6 backdrop-blur transition-transform duration-300 ease-in-out ${
           sidebarOpen
@@ -844,7 +1228,7 @@ export function Chat({
                   className="flex-1 text-left pl-1"
                 >
                   <span className={`line-clamp-1 font-medium ${textPrimary}`}>
-                    {c.title || "Untitled conversation"}
+                    {formatTitle(c.title) || "Untitled Conversation"}
                   </span>
                   <span className={`text-xs ${textSecondary}`}>
                     {format(new Date(c.createdAt), "MMM d, h:mm a")}
@@ -1003,13 +1387,48 @@ export function Chat({
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="hidden items-center gap-2 md:flex">
-              <div
-                className={`flex items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold ${textPrimary}`}
-                style={{
-                  borderColor: isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.15)",
-                }}
-              >
+            <div className="hidden items-center gap-3 md:flex md:flex-wrap md:justify-end">
+              <div className={toolbarShell}>
+                <span className={`pl-2 pr-3 text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
+                  Quick
+                </span>
+                <button
+                  onClick={togglePinnedPanel}
+                  className={`${toggleBase} ${showPinned ? toggleActive : toggleIdle}`}
+                  title={showPinned ? "Close pinned panel" : "Open pinned panel"}
+                >
+                  <BookmarkIcon className="h-4 w-4" />
+                  <span className="hidden xl:inline">Pins</span>
+                </button>
+                <button
+                  onClick={toggleDashboardPanel}
+                  className={`${toggleBase} ${showDashboard ? toggleActive : toggleIdle}`}
+                  title={showDashboard ? "Close dashboard" : "Open dashboard"}
+                >
+                  <ChartBarIcon className="h-4 w-4" />
+                  <span className="hidden xl:inline">Dashboard</span>
+                </button>
+                <button
+                  onClick={() => setVoiceEnabled((v) => !v)}
+                  className={`${toggleBase} ${voiceEnabled ? toggleActive : toggleIdle}`}
+                  title={voiceEnabled ? "Disable voice playback" : "Enable voice playback"}
+                >
+                  <SpeakerWaveIcon className="h-4 w-4" />
+                  <span className="hidden xl:inline">{voiceEnabled ? "Voice on" : "Voice off"}</span>
+                </button>
+                <button
+                  onClick={() => (listening ? stopListening() : startListening())}
+                  className={`${toggleBase} ${listening ? toggleAlert : toggleIdle}`}
+                  title={listening ? "Stop microphone" : "Start microphone"}
+                >
+                  <MicrophoneIcon className="h-4 w-4" />
+                  <span className="hidden xl:inline">{listening ? "Listening" : "Speak"}</span>
+                </button>
+              </div>
+              <div className={toolbarShell}>
+                <span className={`pl-2 pr-3 text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
+                  Display
+                </span>
                 <button
                   onClick={() =>
                     setFontScale((v) => {
@@ -1018,12 +1437,12 @@ export function Chat({
                       return next;
                     })
                   }
-                  className={`rounded-full px-2 py-1 transition ${isDark ? "hover:bg-white/10" : "hover:bg-slate-100"}`}
+                  className={`${toggleBase} px-2 py-1 ${toggleIdle}`}
                   title="Decrease font size"
                 >
                   A-
                 </button>
-                <span className="text-[11px] opacity-70">
+                <span className="px-2 text-[11px] font-semibold opacity-70">
                   {Math.round(fontScale * 100)}%
                 </span>
                 <button
@@ -1034,18 +1453,12 @@ export function Chat({
                       return next;
                     })
                   }
-                  className={`rounded-full px-2 py-1 transition ${isDark ? "hover:bg-white/10" : "hover:bg-slate-100"}`}
+                  className={`${toggleBase} px-2 py-1 ${toggleIdle}`}
                   title="Increase font size"
                 >
                   A+
                 </button>
-              </div>
-              <div
-                className={`flex items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold ${textPrimary}`}
-                style={{
-                  borderColor: isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.15)",
-                }}
-              >
+                <span className={`mx-1 hidden h-4 w-px rounded-full ${isDark ? "bg-white/20" : "bg-slate-200"} lg:block`} />
                 <button
                   onClick={() => {
                     setThemeMode((m) => {
@@ -1054,18 +1467,18 @@ export function Chat({
                       return next;
                     });
                   }}
-                  className={`flex items-center gap-1 rounded-full px-2 py-1 transition ${isDark ? "hover:bg-white/10" : "hover:bg-slate-100"}`}
+                  className={`${toggleBase} ${toggleIdle}`}
                   title="Toggle theme mode"
                 >
                   {themeMode === "dark" ? (
                     <>
                       <MoonIcon className="h-4 w-4" />
-                      <span>Dark</span>
+                      <span className="hidden xl:inline">Dark</span>
                     </>
                   ) : (
                     <>
                       <SunIcon className="h-4 w-4" />
-                      <span>Light</span>
+                      <span className="hidden xl:inline">Light</span>
                     </>
                   )}
                 </button>
@@ -1076,7 +1489,8 @@ export function Chat({
                     setThemeIndex(idx);
                     persistTheme(THEMES[idx].name, themeMode);
                   }}
-                  className={`rounded-full bg-transparent px-2 py-1 text-xs outline-none ${textPrimary}`}
+                  className={`rounded-full bg-transparent px-2 py-1 text-xs font-semibold outline-none ${textPrimary}`}
+                  title="Theme palette"
                 >
                   {THEMES.map((t, idx) => (
                     <option
@@ -1092,56 +1506,12 @@ export function Chat({
                 </select>
               </div>
               <button
-                onClick={() => setSidebarOpen((s) => !s)}
-                className={headerBtn}
-                title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-              >
-                <span className="inline-flex items-center gap-1">
-                  <Bars3CenterLeftIcon className="h-4 w-4" />
-                  <span className="hidden lg:inline">
-                    {sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                  </span>
-                </span>
-              </button>
-              <button
-                onClick={togglePinnedPanel}
-                className={headerBtn}
-              >
-                {showPinned ? "Close Pins" : "Pinned"}
-              </button>
-              <button
-                onClick={toggleDashboardPanel}
-                className={headerBtn}
-              >
-                {showDashboard ? "Close Dashboard" : "Dashboard"}
-              </button>
-              <button
-                onClick={() => setVoiceEnabled((v) => !v)}
-                className={headerBtn}
-              >
-                {voiceEnabled ? "Voice: On" : "Voice: Off"}
-              </button>
-              <button
-                onClick={() => (listening ? stopListening() : startListening())}
-                className={`${headerBtn} ${
-                  listening ? "bg-red-500/30 border-red-400" : ""
-                }`}
-              >
-                <span className="inline-flex items-center gap-2">
-                  {listening && (
-                    <span
-                      className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(52,211,153,0.35)] animate-pulse"
-                      aria-label="Listening"
-                    />
-                  )}
-                  {listening ? "Stop Mic" : "Speak"}
-                </span>
-              </button>
-              <button
                 onClick={() => signOut({ callbackUrl: "/" })}
-                className={`${headerBtn} px-4`}
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 ${theme.accent}`}
+                title="Sign out"
               >
-                Sign out
+                <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                <span className="hidden xl:inline">Sign out</span>
               </button>
             </div>
             <div className="flex items-center gap-2 md:hidden">
@@ -1527,8 +1897,15 @@ export function Chat({
               )}
             </button>
           </div>
-          <p className={`mt-2 text-[11px] uppercase tracking-[0.25em] ${textSecondary}`}>
-            Streaming via Gemini
+          <p className={`mt-2 text-center text-[11px] ${textSecondary}`}>
+            <span className="mx-auto flex items-center justify-center gap-2 text-center tracking-[0.12em]">
+              <span className="flex items-center gap-2">
+                <span>Made with love by Siddharth</span>
+                <span className="text-red-500">❤️</span>
+              </span>
+              <span className="text-xs">•</span>
+              <span>© {new Date().getFullYear()}</span>
+            </span>
           </p>
         </div>
       </main>
