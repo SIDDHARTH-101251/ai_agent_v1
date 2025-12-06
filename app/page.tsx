@@ -6,6 +6,23 @@ import { prisma } from "@/lib/prisma";
 export default async function Home() {
   const session = await getAuthSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
+  const profileSummary =
+    (session?.user as { profileSummary?: string } | undefined)?.profileSummary ??
+    null;
+
+  const initialFontScale = (() => {
+    if (!profileSummary) return undefined;
+    try {
+      const parsed = JSON.parse(profileSummary);
+      const val = parsed?.fontScale;
+      if (typeof val === "number" && val > 0.6 && val < 2.5) {
+        return val;
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  })();
 
   if (!session || !userId) {
     return (
@@ -108,6 +125,7 @@ export default async function Home() {
           : undefined
       }
       initialPinnedIds={pinned.map((p) => p.messageId)}
+      initialFontScale={initialFontScale}
     />
   );
 }

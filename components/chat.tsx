@@ -7,10 +7,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   ArrowRightOnRectangleIcon,
+  Bars3CenterLeftIcon,
   BookmarkIcon,
   ChevronLeftIcon,
   InformationCircleIcon,
   MicrophoneIcon,
+  ChartBarIcon,
   PaperAirplaneIcon,
   SpeakerWaveIcon,
   SwatchIcon,
@@ -119,6 +121,7 @@ type Props = {
   initialThemeName?: string;
   initialThemeMode?: string;
   initialPinnedIds?: string[];
+  initialFontScale?: number;
 };
 
 export function Chat({
@@ -127,13 +130,10 @@ export function Chat({
   initialThemeName,
   initialThemeMode,
   initialPinnedIds,
+  initialFontScale,
 }: Props) {
-  const [conversationId, setConversationId] = useState<string | null>(
-    initialConversations[0]?.id ?? null
-  );
-  const [messages, setMessages] = useState<Message[]>(
-    initialConversations[0]?.messages ?? []
-  );
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] =
     useState<Conversation[]>(initialConversations);
   const [input, setInput] = useState("");
@@ -155,6 +155,7 @@ export function Chat({
     typeof window !== "undefined" ? window.innerWidth >= 1024 : false
   );
   const [showPinned, setShowPinned] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(
     new Set(initialPinnedIds ?? [])
   );
@@ -164,20 +165,49 @@ export function Chat({
   const [activeConversationActions, setActiveConversationActions] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [listening, setListening] = useState(false);
+  const [pinnedWidth, setPinnedWidth] = useState(320);
+  const pinnedWidthRef = useRef(320);
+  const [isResizingPinned, setIsResizingPinned] = useState(false);
+  const [dashboardWidth, setDashboardWidth] = useState(380);
+  const dashboardWidthRef = useRef(380);
+  const [isResizingDashboard, setIsResizingDashboard] = useState(false);
+  const [fontScale, setFontScale] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("chatFontScale");
+      if (stored) {
+        const num = Number(stored);
+        if (!Number.isNaN(num) && num > 0.6 && num < 2.5) {
+          return num;
+        }
+      }
+    }
+    return typeof initialFontScale === "number" && initialFontScale > 0.6 && initialFontScale < 2.5
+      ? initialFontScale
+      : 1;
+  });
+  const greeting = useMemo(() => {
+    const options = [
+      "Hey there! Ready for a fresh conversation?",
+      "New chat, new ideas. Ask me anything.",
+      "Let’s start something new—what’s on your mind?",
+    ];
+    return options[Math.floor(Math.random() * options.length)];
+  }, []);
   const wasListeningDuringSpeak = useRef(false);
   const listeningRef = useRef(false);
   const pendingTranscriptRef = useRef<string | null>(null);
   const conversationIdRef = useRef<string | null>(
-    initialConversations[0]?.id ?? null
+    null
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagePressTimer = useRef<number | null>(null);
   const conversationPressTimer = useRef<number | null>(null);
+  const pinnedLayoutRef = useRef<HTMLDivElement>(null);
 
   const currentTitle = useMemo(() => {
-    const active =
-      conversations.find((c) => c.id === conversationId) ?? conversations[0];
+    if (!conversationId) return "New chat";
+    const active = conversations.find((c) => c.id === conversationId);
     if (!active) return "New chat";
     return active.title || "Untitled conversation";
   }, [conversationId, conversations]);
@@ -221,6 +251,11 @@ export function Chat({
       conversationPressTimer.current = null;
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("chatFontScale", fontScale.toString());
+  }, [fontScale]);
 
   const handleMessageTouchStart = (id: string) => {
     clearMessagePressTimer();
@@ -281,6 +316,10 @@ export function Chat({
     const selected = conversations.find((c) => c.id === id);
     setMessages(selected?.messages ?? []);
     setError(null);
+    conversationIdRef.current = id;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("lastConversationId", id);
+    }
     setActiveMessageActions(null);
     setActiveConversationActions(null);
   };
@@ -290,6 +329,9 @@ export function Chat({
     conversationIdRef.current = null;
     setMessages([]);
     setError(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("lastConversationId");
+    }
     setActiveMessageActions(null);
     setActiveConversationActions(null);
   };
@@ -362,6 +404,9 @@ export function Chat({
       if (newConversationId && newConversationId !== conversationId) {
         setConversationId(newConversationId);
         conversationIdRef.current = newConversationId;
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("lastConversationId", newConversationId);
+        }
       }
 
       const reader = res.body.getReader();
@@ -444,6 +489,13 @@ export function Chat({
         setConversationId(fallback?.id ?? null);
         setMessages(fallback?.messages ?? []);
         conversationIdRef.current = fallback?.id ?? null;
+        if (typeof window !== "undefined") {
+          if (fallback?.id) {
+            window.localStorage.setItem("lastConversationId", fallback.id);
+          } else {
+            window.localStorage.removeItem("lastConversationId");
+          }
+        }
       }
     } catch (err) {
       console.error(err);
@@ -479,6 +531,70 @@ export function Chat({
       });
     } catch (err) {
       console.error("Failed to persist theme", err);
+    }
+  };
+
+  const togglePinnedPanel = () => {
+    setShowPinned((prev) => {
+      const next = !prev;
+      if (next) {
+        setSidebarOpen(false);
+        setShowDashboard(false);
+      }
+      return next;
+    });
+  };
+
+  const toggleDashboardPanel = () => {
+    setShowDashboard((prev) => {
+      const next = !prev;
+      if (next) {
+        setSidebarOpen(false);
+        setShowPinned(false);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const handleMove = (e: PointerEvent) => {
+      const layout = pinnedLayoutRef.current;
+      if (!layout) return;
+      if (isResizingPinned || isResizingDashboard) {
+        const rect = layout.getBoundingClientRect();
+        const maxWidth = Math.max(260, rect.width - 120);
+        const newWidth = Math.min(maxWidth, Math.max(200, rect.right - e.clientX));
+        if (isResizingPinned) {
+          pinnedWidthRef.current = newWidth;
+          setPinnedWidth(newWidth);
+        }
+        if (isResizingDashboard) {
+          dashboardWidthRef.current = newWidth;
+          setDashboardWidth(newWidth);
+        }
+      }
+    };
+    const handleUp = () => {
+      if (isResizingPinned) setIsResizingPinned(false);
+      if (isResizingDashboard) setIsResizingDashboard(false);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+  }, [isResizingPinned, isResizingDashboard]);
+
+  const persistFontScale = async (scale: number) => {
+    try {
+      await fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fontScale: scale }),
+      });
+    } catch (err) {
+      console.error("Failed to persist font scale", err);
     }
   };
 
@@ -563,6 +679,20 @@ export function Chat({
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
+  useEffect(() => {
+    // Restore last opened conversation on mount (client-side).
+    if (typeof window === "undefined") return;
+    const lastId = window.localStorage.getItem("lastConversationId");
+    if (lastId) {
+      const found = initialConversations.find((c) => c.id === lastId);
+      if (found) {
+        setConversationId(found.id);
+        setMessages(found.messages ?? []);
+        conversationIdRef.current = found.id;
+      }
+    }
+  }, [initialConversations]);
+
   const startListening = () => {
     if (typeof window === "undefined") return;
     const SpeechRecognitionCtor =
@@ -634,6 +764,7 @@ export function Chat({
   return (
     <div
       className={`flex h-screen w-full overflow-hidden bg-gradient-to-br ${theme.bg} ${textPrimary} transition-colors duration-200`}
+      style={{ fontSize: `${fontScale}rem` }}
     >
       {!isDesktop && sidebarOpen && (
         <button
@@ -656,7 +787,11 @@ export function Chat({
           sidebarOpen
             ? "translate-x-0 opacity-100 pointer-events-auto"
             : "-translate-x-full opacity-0 pointer-events-none"
-        } lg:relative lg:w-80 lg:translate-x-0 lg:border-b-0 lg:border-r lg:opacity-100 lg:pointer-events-auto`}
+        } lg:relative lg:border-b-0 lg:border-r ${
+          sidebarOpen
+            ? "lg:w-80 lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto"
+            : "lg:w-0 lg:-translate-x-full lg:opacity-0 lg:pointer-events-none lg:px-0 lg:py-0"
+        }`}
       >
         <div className="flex items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: headerBorderColor }}>
           <div className={`flex h-10 w-10 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-slate-100"}`}>
@@ -687,70 +822,76 @@ export function Chat({
               Start your first conversation
             </p>
           )}
-          {conversations.map((c) => (
-            <div
-              key={c.id}
-              className={`group relative flex w-full items-center gap-2 rounded-lg border ${panelBorder} px-3 py-2 text-left transition ${
-                c.id === conversationId
-                  ? `${panelBg} ${textPrimary} ring-1 ring-white/25`
-                  : `${panelBg} ${textSecondary} hover:bg-white/60`
-              }`}
-              onTouchStart={() => handleConversationTouchStart(c.id)}
-              onTouchEnd={handleConversationTouchEnd}
-              onTouchCancel={handleConversationTouchEnd}
-            >
-              <button
-                onClick={() => onSelectConversation(c.id)}
-                className="flex-1 text-left"
-              >
-                <span className={`line-clamp-1 font-medium ${textPrimary}`}>
-                  {c.title || "Untitled conversation"}
-                </span>
-                <span className={`text-xs ${textSecondary}`}>
-                  {format(new Date(c.createdAt), "MMM d, h:mm a")}
-                </span>
-              </button>
+          {conversations.map((c) => {
+            const isActive = c.id === conversationId;
+            return (
               <div
-                className={`flex gap-1 transition ${
-                  activeConversationActions === c.id ? "opacity-100" : ""
-                } lg:opacity-0 lg:group-hover:opacity-100 lg:flex-row lg:items-center`}
+                key={c.id}
+                className={`group relative flex w-full items-center gap-2 rounded-lg border ${panelBorder} px-3 py-2 text-left transition ${
+                  isActive
+                    ? `${panelBg} ${textPrimary} ring-1 ring-emerald-300/60 shadow-md`
+                    : `${panelBg} ${textSecondary} hover:bg-white/60`
+                }`}
+                onTouchStart={() => handleConversationTouchStart(c.id)}
+                onTouchEnd={handleConversationTouchEnd}
+                onTouchCancel={handleConversationTouchEnd}
               >
-                <div className="flex flex-col items-center gap-2 lg:flex-row">
-                  <button
-                    onClick={() => deleteConversation(c.id)}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10`}
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                    <span className="sr-only">Delete</span>
-                  </button>
-                  <button
-                    onClick={() => setOpenSummaryId((prev) => (prev === c.id ? null : c.id))}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10`}
-                  >
-                    <InformationCircleIcon className="h-4 w-4" />
-                    <span className="sr-only">Info</span>
-                  </button>
-                </div>
-              </div>
-
-              {openSummaryId === c.id && (
-                <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-white/20 bg-black/80 p-3 text-xs text-white shadow-xl backdrop-blur">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">Summary</span>
+                {isActive && (
+                  <span className="absolute inset-y-2 left-1 w-1 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.25)]" />
+                )}
+                <button
+                  onClick={() => onSelectConversation(c.id)}
+                  className="flex-1 text-left pl-1"
+                >
+                  <span className={`line-clamp-1 font-medium ${textPrimary}`}>
+                    {c.title || "Untitled conversation"}
+                  </span>
+                  <span className={`text-xs ${textSecondary}`}>
+                    {format(new Date(c.createdAt), "MMM d, h:mm a")}
+                  </span>
+                </button>
+                <div
+                  className={`flex gap-1 transition ${
+                    activeConversationActions === c.id ? "opacity-100" : ""
+                  } lg:opacity-0 lg:group-hover:opacity-100 lg:flex-row lg:items-center`}
+                >
+                  <div className="flex flex-col items-center gap-2 lg:flex-row">
                     <button
-                      onClick={() => setOpenSummaryId(null)}
-                      className="text-[10px] uppercase tracking-[0.2em] text-slate-200 hover:opacity-80"
+                      onClick={() => deleteConversation(c.id)}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10`}
                     >
-                      Close
+                      <TrashIcon className="h-4 w-4" />
+                      <span className="sr-only">Delete</span>
+                    </button>
+                    <button
+                      onClick={() => setOpenSummaryId((prev) => (prev === c.id ? null : c.id))}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs ${chipText} transition hover:bg-white/10`}
+                    >
+                      <InformationCircleIcon className="h-4 w-4" />
+                      <span className="sr-only">Info</span>
                     </button>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-[12px] leading-relaxed text-slate-200">
-                    {c.summary?.trim() || "No summary yet."}
-                  </p>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {openSummaryId === c.id && (
+                  <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-white/20 bg-black/80 p-3 text-xs text-white shadow-xl backdrop-blur">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Summary</span>
+                      <button
+                        onClick={() => setOpenSummaryId(null)}
+                        className="text-[10px] uppercase tracking-[0.2em] text-slate-200 hover:opacity-80"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-[12px] leading-relaxed text-slate-200">
+                      {c.summary?.trim() || "No summary yet."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </aside>
 
@@ -810,13 +951,23 @@ export function Chat({
               </button>
               <button
                 onClick={() => {
-                  setShowPinned((p) => !p);
+                  togglePinnedPanel();
                   setControlsOpen(false);
                 }}
                 className={`${iconBtn} h-10 w-10`}
                 title="Pinned messages"
               >
                 <BookmarkIcon className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => {
+                  toggleDashboardPanel();
+                  setControlsOpen(false);
+                }}
+                className={`${iconBtn} h-10 w-10`}
+                title="Dashboard"
+              >
+                <ChartBarIcon className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setVoiceEnabled((v) => !v)}
@@ -853,6 +1004,42 @@ export function Chat({
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="hidden items-center gap-2 md:flex">
+              <div
+                className={`flex items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold ${textPrimary}`}
+                style={{
+                  borderColor: isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.15)",
+                }}
+              >
+                <button
+                  onClick={() =>
+                    setFontScale((v) => {
+                      const next = Math.max(0.85, Number((v - 0.05).toFixed(2)));
+                      void persistFontScale(next);
+                      return next;
+                    })
+                  }
+                  className={`rounded-full px-2 py-1 transition ${isDark ? "hover:bg-white/10" : "hover:bg-slate-100"}`}
+                  title="Decrease font size"
+                >
+                  A-
+                </button>
+                <span className="text-[11px] opacity-70">
+                  {Math.round(fontScale * 100)}%
+                </span>
+                <button
+                  onClick={() =>
+                    setFontScale((v) => {
+                      const next = Math.min(1.35, Number((v + 0.05).toFixed(2)));
+                      void persistFontScale(next);
+                      return next;
+                    })
+                  }
+                  className={`rounded-full px-2 py-1 transition ${isDark ? "hover:bg-white/10" : "hover:bg-slate-100"}`}
+                  title="Increase font size"
+                >
+                  A+
+                </button>
+              </div>
               <div
                 className={`flex items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold ${textPrimary}`}
                 style={{
@@ -905,10 +1092,28 @@ export function Chat({
                 </select>
               </div>
               <button
-                onClick={() => setShowPinned((p) => !p)}
+                onClick={() => setSidebarOpen((s) => !s)}
+                className={headerBtn}
+                title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Bars3CenterLeftIcon className="h-4 w-4" />
+                  <span className="hidden lg:inline">
+                    {sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+                  </span>
+                </span>
+              </button>
+              <button
+                onClick={togglePinnedPanel}
                 className={headerBtn}
               >
                 {showPinned ? "Close Pins" : "Pinned"}
+              </button>
+              <button
+                onClick={toggleDashboardPanel}
+                className={headerBtn}
+              >
+                {showDashboard ? "Close Dashboard" : "Dashboard"}
               </button>
               <button
                 onClick={() => setVoiceEnabled((v) => !v)}
@@ -941,6 +1146,32 @@ export function Chat({
             </div>
             <div className="flex items-center gap-2 md:hidden">
               <button
+                onClick={() =>
+                  setFontScale((v) => {
+                    const next = Math.max(0.85, Number((v - 0.05).toFixed(2)));
+                    void persistFontScale(next);
+                    return next;
+                  })
+                }
+                className={iconBtn}
+                title="Smaller text"
+              >
+                A-
+              </button>
+              <button
+                onClick={() =>
+                  setFontScale((v) => {
+                    const next = Math.min(1.35, Number((v + 0.05).toFixed(2)));
+                    void persistFontScale(next);
+                    return next;
+                  })
+                }
+                className={iconBtn}
+                title="Larger text"
+              >
+                A+
+              </button>
+              <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className={iconBtn}
                 title="Sign out"
@@ -952,19 +1183,49 @@ export function Chat({
         </div>
 
         <div
-          ref={containerRef}
-          className={`flex-1 space-y-4 overflow-y-auto px-6 py-6 ${
-            showPinned ? "lg:grid lg:grid-cols-[2fr_1fr] lg:gap-4" : ""
+          ref={(el) => {
+            containerRef.current = el;
+            pinnedLayoutRef.current = el;
+          }}
+          className={`relative flex-1 space-y-4 overflow-y-auto px-6 py-6 ${
+            showPinned || showDashboard
+              ? "lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-4"
+              : ""
           }`}
+          style={
+            showPinned || showDashboard
+              ? {
+                  gridTemplateColumns: `minmax(0,1fr) ${
+                    showPinned ? pinnedWidth : dashboardWidth
+                  }px`,
+                }
+              : undefined
+          }
         >
+          {(showPinned || showDashboard) && (
+            <div
+              className="pointer-events-auto absolute top-0 bottom-0 z-20 hidden w-12 cursor-col-resize lg:block"
+              style={{
+                left: `calc(100% - ${(showPinned ? pinnedWidth : dashboardWidth) + 6}px)`,
+                touchAction: "none",
+              }}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                if (showPinned) {
+                  setIsResizingPinned(true);
+                } else if (showDashboard) {
+                  setIsResizingDashboard(true);
+                }
+              }}
+            />
+          )}
           {messages.length === 0 && (
             <div className={`rounded-2xl border ${panelBorder} ${panelBg} p-6 ${textSecondary} shadow-xl`}>
               <p className={`text-lg font-semibold ${textPrimary}`}>
-                Ask anything, get streaming answers from Gemini.
+                {greeting}
               </p>
               <p className={`mt-2 text-sm ${textSecondary}`}>
-                Start by typing a prompt below. Agentic behaviors and tool calls
-                can be added on top of this scaffold.
+                Type or speak to begin. I’ll reply in real time with streaming responses.
               </p>
             </div>
           )}
@@ -977,11 +1238,12 @@ export function Chat({
                 }`}
               >
                 <div
-                  className={`group relative max-w-3xl rounded-2xl px-4 py-3 text-sm shadow-lg ring-1 ${
+                  className={`group relative max-w-3xl rounded-2xl px-4 py-3 shadow-lg ring-1 ${
                     msg.role === "assistant"
                       ? `${theme.bubbleAI}`
                       : `${theme.bubbleUser}`
                   }`}
+                  style={{ fontSize: `${fontScale}rem` }}
                   onTouchStart={() => handleMessageTouchStart(msg.id)}
                   onTouchEnd={handleMessageTouchEnd}
                   onTouchCancel={handleMessageTouchEnd}
@@ -1006,7 +1268,7 @@ export function Chat({
                   >
                     {pinnedIds.has(msg.id) ? "Unpin" : "Pin"}
                   </button>
-                  <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none text-sm leading-relaxed prose-p:my-1 prose-pre:bg-slate-900/70 prose-code:text-[13px]`}>
+                  <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none leading-relaxed prose-p:my-1 prose-pre:bg-slate-900/70 prose-code:text-[13px]`}>
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
@@ -1015,7 +1277,7 @@ export function Chat({
                     >
                       {msg.content ||
                         (isStreaming && msg.role === "assistant"
-                          ? "Thinking..."
+                          ? "Thinking…"
                           : "")}
                     </ReactMarkdown>
                   </div>
@@ -1025,7 +1287,10 @@ export function Chat({
           </div>
 
           {showPinned && (
-            <div className={`hidden h-full flex-col space-y-2 rounded-2xl border ${panelBorder} ${panelBg} p-4 lg:flex`}>
+            <div
+              className={`hidden h-full flex-col space-y-2 rounded-2xl border ${panelBorder} ${panelBg} p-4 lg:flex`}
+              style={{ width: pinnedWidth, minWidth: pinnedWidth, maxWidth: 520 }}
+            >
               <div className="flex items-center justify-between">
                 <h3 className={`text-sm font-semibold uppercase tracking-[0.2em] ${textSecondary}`}>
                   Pinned
@@ -1043,7 +1308,8 @@ export function Chat({
                 {pinnedMessages.map((m) => (
                   <div
                     key={m.id}
-                    className={`rounded-xl border ${panelBorder} ${panelBg} px-3 py-2 text-sm ${textPrimary} shadow`}
+                    className={`rounded-xl border ${panelBorder} ${panelBg} px-3 py-2 ${textPrimary} shadow`}
+                    style={{ fontSize: `${fontScale}rem` }}
                   >
                     <div className={`flex items-center justify-between text-xs ${textSecondary}`}>
                       <span>{m.role === "assistant" ? "Assistant" : "You"}</span>
@@ -1054,13 +1320,40 @@ export function Chat({
                         Unpin
                       </button>
                     </div>
-                    <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none text-sm leading-relaxed prose-p:my-1`}>
+                    <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none leading-relaxed prose-p:my-1`}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {m.content}
                       </ReactMarkdown>
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          {showDashboard && (
+            <div
+              className={`hidden h-full flex-col space-y-3 rounded-2xl border ${panelBorder} ${panelBg} p-4 lg:flex`}
+              style={{ width: dashboardWidth, minWidth: 240, maxWidth: Math.max(320, dashboardWidth) }}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className={`text-sm font-semibold uppercase tracking-[0.2em] ${textSecondary}`}>
+                  Dashboard
+                </h3>
+                <span className={`text-xs ${textSecondary}`}>Live</span>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <div className={`rounded-xl border ${panelBorder} ${panelBg} p-3`}>
+                  <p className={`text-xs uppercase tracking-[0.2em] ${textSecondary}`}>Usage</p>
+                  <div className="mt-2 h-24 rounded-lg bg-gradient-to-br from-emerald-500/40 via-emerald-400/20 to-transparent" />
+                </div>
+                <div className={`rounded-xl border ${panelBorder} ${panelBg} p-3`}>
+                  <p className={`text-xs uppercase tracking-[0.2em] ${textSecondary}`}>Latencies</p>
+                  <div className="mt-2 h-24 rounded-lg bg-gradient-to-br from-indigo-500/30 via-indigo-400/20 to-transparent" />
+                </div>
+                <div className={`rounded-xl border ${panelBorder} ${panelBg} p-3`}>
+                  <p className={`text-xs uppercase tracking-[0.2em] ${textSecondary}`}>System</p>
+                  <div className="mt-2 h-24 rounded-lg bg-gradient-to-br from-amber-500/30 via-amber-300/20 to-transparent" />
+                </div>
               </div>
             </div>
           )}
@@ -1087,7 +1380,8 @@ export function Chat({
                   {pinnedMessages.map((m) => (
                     <div
                       key={m.id}
-                      className={`rounded-xl border ${panelBorder} ${panelBg} px-3 py-2 text-sm ${textPrimary} shadow`}
+                      className={`rounded-xl border ${panelBorder} ${panelBg} px-3 py-2 ${textPrimary} shadow`}
+                      style={{ fontSize: `${fontScale}rem` }}
                     >
                       <div className={`flex items-center justify-between text-xs ${textSecondary}`}>
                         <span>{m.role === "assistant" ? "Assistant" : "You"}</span>
@@ -1098,13 +1392,44 @@ export function Chat({
                           Unpin
                         </button>
                       </div>
-                      <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none text-sm leading-relaxed prose-p:my-1`}>
+                      <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none leading-relaxed prose-p:my-1`}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {m.content}
                         </ReactMarkdown>
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {showDashboard && !showPinned && (
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4 py-6 backdrop-blur-sm lg:hidden">
+              <div className={`relative w-full max-w-lg rounded-2xl border ${panelBorder} ${panelBg} p-4 shadow-2xl`}>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className={`text-sm font-semibold uppercase tracking-[0.2em] ${textSecondary}`}>
+                    Dashboard
+                  </h3>
+                  <button
+                    onClick={() => setShowDashboard(false)}
+                    className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${textPrimary} transition hover:bg-white/10`}
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div className={`rounded-xl border ${panelBorder} ${panelBg} p-3`}>
+                    <p className={`text-xs uppercase tracking-[0.2em] ${textSecondary}`}>Usage</p>
+                    <div className="mt-2 h-20 rounded-lg bg-gradient-to-br from-emerald-500/40 via-emerald-400/20 to-transparent" />
+                  </div>
+                  <div className={`rounded-xl border ${panelBorder} ${panelBg} p-3`}>
+                    <p className={`text-xs uppercase tracking-[0.2em] ${textSecondary}`}>Latencies</p>
+                    <div className="mt-2 h-20 rounded-lg bg-gradient-to-br from-indigo-500/30 via-indigo-400/20 to-transparent" />
+                  </div>
+                  <div className={`rounded-xl border ${panelBorder} ${panelBg} p-3`}>
+                    <p className={`text-xs uppercase tracking-[0.2em] ${textSecondary}`}>System</p>
+                    <div className="mt-2 h-20 rounded-lg bg-gradient-to-br from-amber-500/30 via-amber-300/20 to-transparent" />
+                  </div>
                 </div>
               </div>
             </div>
