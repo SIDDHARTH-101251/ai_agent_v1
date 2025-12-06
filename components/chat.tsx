@@ -578,18 +578,30 @@ export function Chat({
       recog.interimResults = true;
       recog.maxAlternatives = 1;
       recog.onresult = (event: any) => {
-        const resultsArr = Array.from(event.results ?? []) as SpeechRecognitionResult[];
-        if (!resultsArr.length) return;
-        const transcript = resultsArr
-          .map((r: SpeechRecognitionResult) => r?.[0]?.transcript ?? "")
+        const speechEvent = event as any;
+        const resultsList = speechEvent?.results as SpeechRecognitionResultList | undefined;
+        if (!resultsList || resultsList.length === 0) return;
+        const idx =
+          typeof speechEvent.resultIndex === "number" && speechEvent.resultIndex >= 0
+            ? speechEvent.resultIndex
+            : resultsList.length - 1;
+        const lastResult = resultsList[idx] as SpeechRecognitionResult;
+        const transcript = Array.from(lastResult)
+          .map((alt) => alt?.transcript ?? "")
           .join(" ")
           .trim();
         if (!transcript) return;
         setInput(transcript);
         resizeTextarea(transcript);
-        const hasFinal = resultsArr.some((r) => r?.isFinal);
-        if (hasFinal) {
+        if (lastResult.isFinal) {
           pendingTranscriptRef.current = transcript;
+          const snapshot = transcript;
+          setTimeout(() => {
+            // Avoid double send if a newer transcript arrived.
+            if (pendingTranscriptRef.current !== snapshot) return;
+            pendingTranscriptRef.current = null;
+            sendMessage(snapshot);
+          }, 200);
         }
       };
       recog.onerror = () => {
@@ -602,9 +614,7 @@ export function Chat({
         if (finalText) {
           setInput(finalText);
           resizeTextarea(finalText);
-          setTimeout(() => {
-            sendMessage(finalText);
-          }, 200);
+          sendMessage(finalText);
         }
         if (listeningRef.current && isDesktop) {
           recog.start();
