@@ -18,11 +18,14 @@ export async function GET(req: NextRequest) {
     const usageRows = await prisma.dailyUsage.findMany({
       where: { userId, day: { gte: start, lt: tomorrow } },
       orderBy: { day: "asc" },
-      select: { day: true, responses: true },
+      select: { day: true, responses: true, sharedResponses: true, personalResponses: true },
     });
 
     const usageLookup = new Map(
       usageRows.map((row) => [startOfUTCDay(row.day).toISOString(), row.responses])
+    );
+    const todaysUsage = usageRows.find(
+      (row) => startOfUTCDay(row.day).getTime() === today.getTime()
     );
 
     const usage = days.map((day) => ({
@@ -41,6 +44,8 @@ export async function GET(req: NextRequest) {
       limit: effectiveLimit,
       defaultLimit: DAILY_RESPONSE_LIMIT,
       hasGoogleKey: Boolean(user?.googleApiKeyCipher),
+      usedShared: todaysUsage?.sharedResponses ?? 0,
+      usedPersonal: todaysUsage?.personalResponses ?? 0,
     });
   }
 
@@ -58,12 +63,17 @@ export async function GET(req: NextRequest) {
       dailyLimit: true,
       googleApiKeyCipher: true,
       createdAt: true,
-      usage: { where: { day: { gte: today, lt: tomorrow } }, select: { responses: true } },
+      usage: {
+        where: { day: { gte: today, lt: tomorrow } },
+        select: { responses: true, sharedResponses: true, personalResponses: true },
+      },
     },
   });
 
   const mapped = users.map((u) => {
     const used = u.usage[0]?.responses ?? 0;
+    const usedShared = u.usage[0]?.sharedResponses ?? 0;
+    const usedPersonal = u.usage[0]?.personalResponses ?? 0;
     const effectiveLimit = u.dailyLimit ?? DAILY_RESPONSE_LIMIT;
     return {
       id: u.id,
@@ -75,6 +85,8 @@ export async function GET(req: NextRequest) {
       limit: effectiveLimit,
       createdAt: u.createdAt,
       used,
+      usedShared,
+      usedPersonal,
       remaining: Math.max(effectiveLimit - used, 0),
       hasGoogleKey: Boolean(u.googleApiKeyCipher),
     };
@@ -136,12 +148,14 @@ export async function PATCH(req: NextRequest) {
           where: {
             day: { gte: startOfUTCDay(), lt: addUTCDays(startOfUTCDay(), 1) },
           },
-          select: { responses: true },
+          select: { responses: true, sharedResponses: true, personalResponses: true },
         },
       },
     });
 
     const used = updated.usage[0]?.responses ?? 0;
+    const usedShared = updated.usage[0]?.sharedResponses ?? 0;
+    const usedPersonal = updated.usage[0]?.personalResponses ?? 0;
     const effectiveLimit = updated.dailyLimit ?? DAILY_RESPONSE_LIMIT;
 
     return NextResponse.json({
@@ -156,6 +170,8 @@ export async function PATCH(req: NextRequest) {
         limit: effectiveLimit,
         createdAt: updated.createdAt,
         used,
+        usedShared,
+        usedPersonal,
         remaining: Math.max(effectiveLimit - used, 0),
         hasGoogleKey: Boolean(updated.googleApiKeyCipher),
       },

@@ -123,6 +123,8 @@ model DailyUsage {
   userId    String
   day       DateTime
   responses Int      @default(0)
+  sharedResponses   Int      @default(0)
+  personalResponses Int      @default(0)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, day])

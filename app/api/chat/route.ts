@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const existingUsage = await prisma.dailyUsage.findFirst({
     where: { userId, day: { gte: day, lt: dayEnd } },
-    select: { id: true, responses: true },
+    select: { id: true, responses: true, personalResponses: true, sharedResponses: true },
   });
 
   if (!isAdmin && !isUsingPersonalKey && existingUsage && existingUsage.responses >= effectiveLimit) {
@@ -142,11 +142,22 @@ export async function POST(req: NextRequest) {
         const updatedUsage = existingUsage
           ? await prisma.dailyUsage.update({
               where: { id: existingUsage.id },
-              data: { responses: { increment: 1 } },
+              data: {
+                responses: { increment: 1 },
+                ...(isUsingPersonalKey
+                  ? { personalResponses: { increment: 1 } }
+                  : { sharedResponses: { increment: 1 } }),
+              },
               select: { responses: true },
             })
           : await prisma.dailyUsage.create({
-              data: { userId: ownerId, day, responses: 1 },
+              data: {
+                userId: ownerId,
+                day,
+                responses: 1,
+                personalResponses: isUsingPersonalKey ? 1 : 0,
+                sharedResponses: isUsingPersonalKey ? 0 : 1,
+              },
               select: { responses: true },
             });
         if (!isUsingPersonalKey && Number.isFinite(effectiveLimit)) {

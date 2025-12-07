@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { signOut } from "next-auth/react";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
@@ -509,6 +509,12 @@ export function Chat({
   const [savingPersonalKey, setSavingPersonalKey] = useState(false);
   const [personalKeyMessage, setPersonalKeyMessage] = useState<string | null>(null);
   const [highlightPersonalKey, setHighlightPersonalKey] = useState(false);
+  const [usageLimit, setUsageLimit] = useState<number | null>(null);
+  const [usageRemaining, setUsageRemaining] = useState<number | null>(null);
+  const [usageUsedTotal, setUsageUsedTotal] = useState<number | null>(null);
+  const [usageUsedShared, setUsageUsedShared] = useState<number | null>(null);
+  const [usageUsedPersonal, setUsageUsedPersonal] = useState<number | null>(null);
+  const [showUsageDrawer, setShowUsageDrawer] = useState(false);
   const [themeIndex, setThemeIndex] = useState(() => {
     const idx = THEMES.findIndex(
       (t) => t.name.toLowerCase() === initialThemeName?.toLowerCase()
@@ -922,6 +928,20 @@ export function Chat({
         }
       }
 
+      const limitHeader = res.headers.get("x-usage-limit");
+      const remainingHeader = res.headers.get("x-usage-remaining");
+      const parsedLimit = limitHeader ? Number(limitHeader) : null;
+      const parsedRemaining = remainingHeader ? Number(remainingHeader) : null;
+      if (
+        parsedLimit !== null &&
+        Number.isFinite(parsedLimit) &&
+        parsedRemaining !== null &&
+        Number.isFinite(parsedRemaining)
+      ) {
+        setUsageLimit(parsedLimit);
+        setUsageRemaining(parsedRemaining);
+      }
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let assistantText = "";
@@ -968,6 +988,14 @@ export function Chat({
         const others = prev.filter((c) => c.id !== updated.id);
         return [updated, ...others];
       });
+      // Update usage counters locally and refresh server state.
+      setUsageUsedTotal((prev) => (prev ?? 0) + 1);
+      if (hasPersonalKey) {
+        setUsageUsedPersonal((prev) => (prev ?? 0) + 1);
+      } else {
+        setUsageUsedShared((prev) => (prev ?? 0) + 1);
+      }
+      void refreshUsage();
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : "Unexpected error";
@@ -1155,6 +1183,40 @@ export function Chat({
     }
   };
 
+  const refreshUsage = useCallback(async () => {
+    try {
+      const res = await fetch("/api/usage");
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      setHasPersonalKey(Boolean(data.hasPersonalKey));
+      setUsageLimit(
+        typeof data.limit === "number" && Number.isFinite(data.limit) ? data.limit : null
+      );
+      setUsageRemaining(
+        typeof data.remaining === "number" && Number.isFinite(data.remaining)
+          ? data.remaining
+          : null
+      );
+      setUsageUsedTotal(
+        typeof data.usedTotal === "number" && data.usedTotal >= 0 ? data.usedTotal : null
+      );
+      setUsageUsedShared(
+        typeof data.usedShared === "number" && data.usedShared >= 0 ? data.usedShared : null
+      );
+      setUsageUsedPersonal(
+        typeof data.usedPersonal === "number" && data.usedPersonal >= 0
+          ? data.usedPersonal
+          : null
+      );
+    } catch (err) {
+      // ignore fetch errors; usage display is best-effort
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshUsage();
+  }, [refreshUsage]);
+
   const savePersonalKey = async () => {
     const trimmed = personalKeyInput.trim();
     if (!trimmed) {
@@ -1177,6 +1239,7 @@ export function Chat({
       setHasPersonalKey(Boolean(payload.hasGoogleKey));
       setPersonalKeyMessage("Personal key saved");
       setPersonalKeyInput("");
+      void refreshUsage();
     } catch (err) {
       console.error("Failed to save personal key", err);
       setPersonalKeyMessage("Failed to save key");
@@ -1202,6 +1265,7 @@ export function Chat({
       }
       setHasPersonalKey(false);
       setPersonalKeyMessage("Personal key removed");
+      void refreshUsage();
     } catch (err) {
       console.error("Failed to clear personal key", err);
       setPersonalKeyMessage("Failed to clear key");
@@ -1427,6 +1491,13 @@ export function Chat({
         <ChevronLeftIcon
           className={`h-5 w-5 transition ${sidebarOpen ? "" : "rotate-180"}`}
         />
+      </button>
+      <button
+        aria-label={showUsageDrawer ? "Hide usage" : "Show usage"}
+        onClick={() => setShowUsageDrawer((s) => !s)}
+        className="fixed right-2 top-1/2 z-40 hidden -translate-y-1/2 items-center justify-center rounded-full border border-emerald-200/60 bg-emerald-500/20 p-3 text-emerald-50 shadow-lg backdrop-blur transition hover:-translate-y-[52%] lg:flex"
+      >
+        <BookmarkIcon className="h-5 w-5" />
       </button>
       <aside
         className={`fixed inset-y-0 left-0 z-30 flex h-full w-[80vw] max-w-xs flex-col gap-4 overflow-hidden border-b ${theme.border} ${theme.card} px-5 py-6 backdrop-blur transition-transform duration-300 ease-in-out ${
@@ -1863,11 +1934,11 @@ export function Chat({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="hidden items-center gap-3 md:flex md:flex-wrap md:justify-end">
-              <div className={toolbarShell}>
-                <span className={`pl-2 pr-3 text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
-                  Quick
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="hidden items-center gap-3 md:flex md:flex-wrap md:justify-end">
+                <div className={toolbarShell}>
+                  <span className={`pl-2 pr-3 text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
+                    Quick
                 </span>
                 {isAdmin && (
                   <a
@@ -1910,11 +1981,11 @@ export function Chat({
                   <MicrophoneIcon className="h-4 w-4" />
                   <span className="hidden xl:inline">{listening ? "Listening" : "Speak"}</span>
                 </button>
-              </div>
-              <div className={toolbarShell}>
-                <span className={`pl-2 pr-3 text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
-                  Display
-                </span>
+                </div>
+                <div className={toolbarShell}>
+                  <span className={`pl-2 pr-3 text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
+                    Display
+                  </span>
                 <button
                   onClick={() =>
                     setFontScale((v) => {
@@ -1963,12 +2034,12 @@ export function Chat({
                     </>
                   ) : (
                     <>
-                      <SunIcon className="h-4 w-4" />
-                      <span className="hidden xl:inline">Light</span>
-                    </>
-                  )}
-                </button>
-                <select
+                    <SunIcon className="h-4 w-4" />
+                    <span className="hidden xl:inline">Light</span>
+                  </>
+                )}
+              </button>
+              <select
                   value={themeIndex}
                   onChange={(e) => {
                     const idx = Number(e.target.value);
@@ -2000,43 +2071,50 @@ export function Chat({
                 <span className="hidden xl:inline">Sign out</span>
               </button>
             </div>
-            <div className="flex items-center gap-2 md:hidden">
-              <button
-                onClick={() =>
-                  setFontScale((v) => {
-                    const next = Math.max(0.85, Number((v - 0.05).toFixed(2)));
-                    void persistFontScale(next);
-                    return next;
-                  })
-                }
-                className={iconBtn}
-                title="Smaller text"
-              >
-                A-
-              </button>
-              <button
-                onClick={() =>
-                  setFontScale((v) => {
-                    const next = Math.min(1.35, Number((v + 0.05).toFixed(2)));
-                    void persistFontScale(next);
-                    return next;
-                  })
-                }
-                className={iconBtn}
-                title="Larger text"
-              >
-                A+
-              </button>
-              <button
-                onClick={() => signOut({ callbackUrl: "/auth/signin" })}
-                className={iconBtn}
-                title="Sign out"
-              >
-                <ArrowRightOnRectangleIcon className="h-4 w-4" />
-              </button>
-            </div>
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              onClick={() =>
+                setFontScale((v) => {
+                  const next = Math.max(0.85, Number((v - 0.05).toFixed(2)));
+                  void persistFontScale(next);
+                  return next;
+                })
+              }
+              className={iconBtn}
+              title="Smaller text"
+            >
+              A-
+            </button>
+            <button
+              onClick={() =>
+                setFontScale((v) => {
+                  const next = Math.min(1.35, Number((v + 0.05).toFixed(2)));
+                  void persistFontScale(next);
+                  return next;
+                })
+              }
+              className={iconBtn}
+              title="Larger text"
+            >
+              A+
+            </button>
+            <button
+              onClick={() => setShowUsageDrawer((s) => !s)}
+              className={iconBtn}
+              title="View quota usage"
+            >
+              <InformationCircleIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+              className={iconBtn}
+              title="Sign out"
+            >
+              <ArrowRightOnRectangleIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
+      </div>
 
         <div
           ref={(el) => {
@@ -2302,6 +2380,74 @@ export function Chat({
             </div>
           )}
         </div>
+
+        {showUsageDrawer && (
+          <div className={`mx-6 mb-2 rounded-2xl border ${theme.border} ${panelBg} px-4 py-3 text-sm shadow-lg`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ChartBarIcon className="h-4 w-4 opacity-80" />
+                <span className={`text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
+                  {hasPersonalKey ? "Personal key" : "Daily quota"}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowUsageDrawer(false)}
+                className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${textSecondary} hover:opacity-80`}
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-4 text-xs">
+              <div className="flex flex-col gap-1">
+                <span className={textSecondary}>Default key used</span>
+                <span className={textPrimary}>{usageUsedShared ?? 0}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className={textSecondary}>Personal key used</span>
+                <span className={textPrimary}>{usageUsedPersonal ?? 0}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className={textSecondary}>Total</span>
+                <span className={textPrimary}>{usageUsedTotal ?? 0}</span>
+              </div>
+              {!hasPersonalKey && usageLimit !== null && usageRemaining !== null && (
+                <div className="flex-1 min-w-[200px]">
+                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em]">
+                    <span className={textSecondary}>Remaining</span>
+                    <span className={textPrimary}>
+                      {usageRemaining} / {usageLimit}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-white/10">
+                    <div
+                      className="h-2 rounded-full bg-emerald-400"
+                      style={{
+                        width: `${Math.max(
+                          0,
+                          Math.min(100, ((usageLimit - usageRemaining) / usageLimit) * 100)
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {hasPersonalKey && (
+                <div className="flex flex-col gap-1">
+                  <span className={textSecondary}>Status</span>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${
+                      isDark
+                        ? "border-emerald-300/50 bg-emerald-400/10 text-emerald-100"
+                        : "border-emerald-500/40 bg-emerald-50 text-emerald-700"
+                    }`}
+                  >
+                    Using your key (no app cap)
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className={`border-t ${theme.border} bg-black/10 px-6 py-4 backdrop-blur`}>
           {error && (

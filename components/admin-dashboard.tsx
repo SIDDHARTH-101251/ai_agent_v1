@@ -10,6 +10,8 @@ type UserRow = {
   isBlocked: boolean;
   createdAt: string;
   used: number;
+  usedShared: number;
+  usedPersonal: number;
   limit: number;
   remaining: number;
   hasGoogleKey: boolean;
@@ -27,7 +29,9 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
   const [usage, setUsage] = useState<UsagePoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [quotaLimit, setQuotaLimit] = useState(users[0]?.limit ?? defaultLimit);
-  const [limitInput, setLimitInput] = useState(String(users[0]?.limit ?? defaultLimit));
+  const [limitInput, setLimitInput] = useState(
+    users[0]?.hasGoogleKey ? "" : String(users[0]?.limit ?? defaultLimit)
+  );
   const [blocked, setBlocked] = useState(users[0]?.isBlocked ?? false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -45,7 +49,16 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
         if (typeof data.hasGoogleKey === "boolean") {
           setUserList((prev) =>
             prev.map((u) =>
-              u.id === selectedId ? { ...u, hasGoogleKey: data.hasGoogleKey } : u
+              u.id === selectedId
+                ? {
+                    ...u,
+                    hasGoogleKey: data.hasGoogleKey,
+                    usedShared:
+                      typeof data.usedShared === "number" ? data.usedShared : u.usedShared,
+                    usedPersonal:
+                      typeof data.usedPersonal === "number" ? data.usedPersonal : u.usedPersonal,
+                  }
+                : u
             )
           );
         }
@@ -59,18 +72,26 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
     if (selected) {
       const nextLimit = selected.limit ?? defaultLimit;
       setQuotaLimit(nextLimit);
-      setLimitInput(String(nextLimit));
+      setLimitInput(selected.hasGoogleKey ? "" : String(nextLimit));
       setBlocked(selected.isBlocked);
     }
   }, [selectedId, userList, defaultLimit]);
 
   const selectedUser = userList.find((u) => u.id === selectedId) ?? null;
-  const selectedRemaining = selectedUser
+  const selectedIsUnlimited = Boolean(selectedUser?.hasGoogleKey);
+  const selectedRemaining = selectedIsUnlimited
+    ? Infinity
+    : selectedUser
     ? Math.max(quotaLimit - selectedUser.used, 0)
     : quotaLimit;
+  const selectedUsedShared = selectedUser?.usedShared ?? 0;
+  const selectedUsedPersonal = selectedUser?.usedPersonal ?? 0;
   const maxResponses = useMemo(
-    () => Math.max(quotaLimit, ...usage.map((u) => u.responses), 1),
-    [quotaLimit, usage]
+    () =>
+      selectedIsUnlimited
+        ? Math.max(selectedUser?.used ?? 0, ...usage.map((u) => u.responses), 1)
+        : Math.max(quotaLimit, ...usage.map((u) => u.responses), 1),
+    [quotaLimit, usage, selectedIsUnlimited, selectedUser?.used]
   );
 
   const updateUserSettings = async (updates: { dailyLimit?: number | null; isBlocked?: boolean }) => {
@@ -94,7 +115,7 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
           prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u))
         );
         setQuotaLimit(updated.limit);
-        setLimitInput(String(updated.limit));
+        setLimitInput(updated.hasGoogleKey ? "" : String(updated.limit));
         setBlocked(updated.isBlocked);
         setSaveMessage("Saved");
       }
@@ -135,7 +156,7 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
             <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
           </div>
           <div className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-4 py-2 text-xs font-semibold text-emerald-100">
-            Daily quota: {quotaLimit} responses
+            {selectedIsUnlimited ? "Personal key (no app limit)" : `Daily quota: ${quotaLimit} responses`}
           </div>
         </div>
 
@@ -148,26 +169,35 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-200">Used today</p>
             <p className="mt-2 text-2xl font-semibold">
-              {selectedUser?.used ?? 0} / {quotaLimit}
+              {selectedUser?.used ?? 0}
+              {!selectedIsUnlimited ? ` / ${quotaLimit}` : " (personal key)"}
             </p>
             <p className="text-xs text-slate-300">Responses consumed by selected user</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-200">Quota left</p>
-            <p className="mt-2 text-2xl font-semibold">{selectedRemaining}</p>
-            <p className="text-xs text-slate-300">Remaining for today</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {selectedIsUnlimited ? "Unlimited" : selectedRemaining}
+            </p>
+            <p className="text-xs text-slate-300">
+              {selectedIsUnlimited ? "Personal key active" : "Remaining for today"}
+            </p>
           </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-200">Users</p>
-              <p className="text-[11px] text-slate-300">{quotaLimit} responses / day</p>
-            </div>
+            <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-200">Users</p>
+              <p className="text-[11px] text-slate-300">
+                {selectedIsUnlimited ? "Personal key (no app cap)" : `${quotaLimit} responses / day`}
+              </p>
+              </div>
             <div className="max-h-[60vh] space-y-2 overflow-auto pr-2">
               {userList.map((u) => {
-                const usedPct = u.limit
+                const usedPct = u.hasGoogleKey
+                  ? 0
+                  : u.limit
                   ? Math.min(100, (u.used / u.limit) * 100)
                   : 0;
                 return (
@@ -188,11 +218,13 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
                         <div className="mt-2 h-2 rounded-full bg-white/10">
                           <div
                             className="h-2 rounded-full bg-emerald-400"
-                            style={{ width: `${usedPct}%` }}
+                            style={{ width: u.hasGoogleKey ? "100%" : `${usedPct}%`, opacity: u.hasGoogleKey ? 0.35 : 1 }}
                           />
                         </div>
                         <p className="mt-1 text-[11px] text-slate-300">
-                          Used {u.used}/{u.limit} · Left {Math.max(u.limit - u.used, 0)}
+                          {u.hasGoogleKey
+                            ? `Used ${u.used} · Personal key`
+                            : `Used ${u.used}/${u.limit} · Left ${Math.max(u.limit - u.used, 0)}`}
                         </p>
                       </div>
                       {u.isAdmin && (
@@ -237,14 +269,24 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
                       <p className="text-[11px] text-slate-400">of {quotaLimit} today</p>
                     </div>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Used today</p>
                       <p className="mt-1 text-lg font-semibold">{selectedUser.used}</p>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Remaining</p>
-                      <p className="mt-1 text-lg font-semibold">{selectedRemaining}</p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {selectedIsUnlimited ? "Unlimited" : selectedRemaining}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Default key</p>
+                      <p className="mt-1 text-lg font-semibold">{selectedUsedShared}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Personal key</p>
+                      <p className="mt-1 text-lg font-semibold">{selectedUsedPersonal}</p>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Role</p>
@@ -269,9 +311,14 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
                           max={10000}
                           value={limitInput}
                           onChange={(e) => setLimitInput(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent transition focus:border-white/40 focus:ring-white/20"
+                          disabled={selectedIsUnlimited}
+                          className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent transition focus:border-white/40 focus:ring-white/20 disabled:cursor-not-allowed disabled:opacity-60"
                         />
-                        <p className="mt-1 text-[11px] text-slate-400">Default: {defaultLimit}</p>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {selectedIsUnlimited
+                            ? "Personal key bypasses app quota"
+                            : `Default: ${defaultLimit}`}
+                        </p>
                       </div>
                       <button
                         onClick={() => {
@@ -283,7 +330,7 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
                           }
                           updateUserSettings({ dailyLimit: parsed });
                         }}
-                        disabled={saving}
+                        disabled={saving || selectedIsUnlimited}
                         className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-400 disabled:opacity-60 sm:w-auto"
                       >
                         {saving ? "Saving..." : "Save quota"}
@@ -318,7 +365,9 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
             <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
               <div className="flex items-center justify-between">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-200">Usage (last 7 days)</p>
-                <p className="text-[11px] text-slate-300">Limit {quotaLimit}/day</p>
+                <p className="text-[11px] text-slate-300">
+                  {selectedIsUnlimited ? "Personal key (no limit)" : `Limit ${quotaLimit}/day`}
+                </p>
               </div>
               {loading ? (
                 <p className="text-sm text-slate-200">Loading…</p>

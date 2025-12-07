@@ -24,12 +24,17 @@ export default async function AdminPage() {
       dailyLimit: true,
       googleApiKeyCipher: true,
       createdAt: true,
-      usage: { where: { day: { gte: today, lt: tomorrow } }, select: { responses: true } },
+      usage: {
+        where: { day: { gte: today, lt: tomorrow } },
+        select: { responses: true, sharedResponses: true, personalResponses: true },
+      },
     },
   });
 
   const mapped = users.map((u) => {
     const used = u.usage[0]?.responses ?? 0;
+    const usedShared = u.usage[0]?.sharedResponses ?? 0;
+    const usedPersonal = u.usage[0]?.personalResponses ?? 0;
     const effectiveLimit = u.dailyLimit ?? DAILY_RESPONSE_LIMIT;
     return {
       id: u.id,
@@ -42,6 +47,8 @@ export default async function AdminPage() {
       hasGoogleKey: Boolean(u.googleApiKeyCipher),
       createdAt: u.createdAt.toISOString(),
       used,
+      usedShared,
+      usedPersonal,
       remaining: Math.max(effectiveLimit - used, 0),
     };
   });
