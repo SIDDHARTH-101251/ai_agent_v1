@@ -4,7 +4,7 @@ import { DAILY_RESPONSE_LIMIT, getAuthSession } from "@/lib/auth";
 import { runReactAgent } from "@/lib/agent";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GEMINI_MODEL } from "@/lib/gemini";
-import { startOfUTCDay } from "@/lib/dates";
+import { addUTCDays, startOfUTCDay } from "@/lib/dates";
 
 export async function POST(req: NextRequest) {
   const session = await getAuthSession();
@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
       (session?.user as { name?: string } | undefined)?.name
   );
   const isAdminFromToken = Boolean((session?.user as { isAdmin?: boolean } | undefined)?.isAdmin);
-  let today: Date | null = null;
   let todayRemaining: number | null = null;
 
   if (!userId) {
@@ -33,23 +32,23 @@ export async function POST(req: NextRequest) {
 
   const isAdmin = isAdminFromToken || userRecord.isAdmin;
   const effectiveLimit = userRecord.dailyLimit ?? DAILY_RESPONSE_LIMIT;
+  const day = startOfUTCDay();
+  const dayEnd = addUTCDays(day, 1);
 
   if (!isAdmin && userRecord.isBlocked) {
     return NextResponse.json({ error: "Account is blocked" }, { status: 403 });
   }
 
-  if (!isAdmin) {
-    today = startOfUTCDay();
-    const usage = await prisma.dailyUsage.findUnique({
-      where: { userId_day: { userId, day: today } },
-      select: { responses: true },
-    });
-    if (usage && usage.responses >= effectiveLimit) {
-      return NextResponse.json(
-        { error: "Daily response limit reached" },
-        { status: 429 }
-      );
-    }
+  const existingUsage = await prisma.dailyUsage.findFirst({
+    where: { userId, day: { gte: day, lt: dayEnd } },
+    select: { id: true, responses: true },
+  });
+
+  if (!isAdmin && existingUsage && existingUsage.responses >= effectiveLimit) {
+    return NextResponse.json(
+      { error: "Daily response limit reached" },
+      { status: 429 }
+    );
   }
 
   if (!hasIdentity) {
@@ -132,19 +131,20 @@ export async function POST(req: NextRequest) {
           data: { content: finalAssistant },
         });
 
-        if (!isAdmin) {
-          const day = today ?? startOfUTCDay();
-          const updatedUsage = await prisma.dailyUsage.upsert({
-            where: { userId_day: { userId: ownerId, day } },
-            update: { responses: { increment: 1 } },
-            create: { userId: ownerId, day, responses: 1 },
-            select: { responses: true },
-          });
-          todayRemaining = Math.max(
-            effectiveLimit - (updatedUsage?.responses ?? 0),
-            0
-          );
-        }
+        const updatedUsage = existingUsage
+          ? await prisma.dailyUsage.update({
+              where: { id: existingUsage.id },
+              data: { responses: { increment: 1 } },
+              select: { responses: true },
+            })
+          : await prisma.dailyUsage.create({
+              data: { userId: ownerId, day, responses: 1 },
+              select: { responses: true },
+            });
+        todayRemaining = Math.max(
+          effectiveLimit - (updatedUsage?.responses ?? 0),
+          0
+        );
 
         // Update conversation summary in the background.
         try {

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthSession, DAILY_RESPONSE_LIMIT } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { recentUTCDays, startOfUTCDay } from "@/lib/dates";
+import { addUTCDays, recentUTCDays, startOfUTCDay } from "@/lib/dates";
 
 export async function GET(req: NextRequest) {
   const session = await getAuthSession();
@@ -12,10 +12,11 @@ export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId");
   if (userId) {
     const today = startOfUTCDay();
+    const tomorrow = addUTCDays(today, 1);
     const days = recentUTCDays(7, today);
     const start = days[0];
     const usageRows = await prisma.dailyUsage.findMany({
-      where: { userId, day: { gte: start, lte: today } },
+      where: { userId, day: { gte: start, lt: tomorrow } },
       orderBy: { day: "asc" },
       select: { day: true, responses: true },
     });
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
   }
 
   const today = startOfUTCDay();
+  const tomorrow = addUTCDays(today, 1);
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "asc" },
     select: {
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
       isBlocked: true,
       dailyLimit: true,
       createdAt: true,
-      usage: { where: { day: today }, select: { responses: true } },
+      usage: { where: { day: { gte: today, lt: tomorrow } }, select: { responses: true } },
     },
   });
 
@@ -122,7 +124,12 @@ export async function PATCH(req: NextRequest) {
         isBlocked: true,
         dailyLimit: true,
         createdAt: true,
-        usage: { where: { day: startOfUTCDay() }, select: { responses: true } },
+        usage: {
+          where: {
+            day: { gte: startOfUTCDay(), lt: addUTCDays(startOfUTCDay(), 1) },
+          },
+          select: { responses: true },
+        },
       },
     });
 

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthSession, DAILY_RESPONSE_LIMIT } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminDashboard } from "@/components/admin-dashboard";
-import { startOfUTCDay } from "@/lib/dates";
+import { addUTCDays, startOfUTCDay } from "@/lib/dates";
 
 export default async function AdminPage() {
   const session = await getAuthSession();
@@ -11,6 +11,7 @@ export default async function AdminPage() {
   }
 
   const today = startOfUTCDay();
+  const tomorrow = addUTCDays(today, 1);
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "asc" },
     select: {
@@ -22,7 +23,7 @@ export default async function AdminPage() {
       isBlocked: true,
       dailyLimit: true,
       createdAt: true,
-      usage: { where: { day: today }, select: { responses: true } },
+      usage: { where: { day: { gte: today, lt: tomorrow } }, select: { responses: true } },
     },
   });
 
