@@ -19,6 +19,8 @@ export default async function AdminPage() {
       name: true,
       image: true,
       isAdmin: true,
+      isBlocked: true,
+      dailyLimit: true,
       createdAt: true,
       usage: { where: { day: today }, select: { responses: true } },
     },
@@ -26,17 +28,20 @@ export default async function AdminPage() {
 
   const mapped = users.map((u) => {
     const used = u.usage[0]?.responses ?? 0;
+    const effectiveLimit = u.dailyLimit ?? DAILY_RESPONSE_LIMIT;
     return {
       id: u.id,
       username: u.username ?? "",
       displayName: u.name ?? u.username ?? "User",
       image: u.image ?? null,
       isAdmin: u.isAdmin,
+      isBlocked: u.isBlocked,
+      limit: effectiveLimit,
       createdAt: u.createdAt.toISOString(),
       used,
-      remaining: Math.max(DAILY_RESPONSE_LIMIT - used, 0),
+      remaining: Math.max(effectiveLimit - used, 0),
     };
   });
 
-  return <AdminDashboard users={mapped} limit={DAILY_RESPONSE_LIMIT} />;
+  return <AdminDashboard users={mapped} defaultLimit={DAILY_RESPONSE_LIMIT} />;
 }

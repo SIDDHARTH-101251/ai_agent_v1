@@ -13,6 +13,7 @@ import {
   PhotoIcon,
   MicrophoneIcon,
   ChartBarIcon,
+  ShieldCheckIcon,
   PencilSquareIcon,
   PaperAirplaneIcon,
   SpeakerWaveIcon,
@@ -627,6 +628,7 @@ export function Chat({
   const iconBtn =
     `flex h-9 w-9 items-center justify-center rounded-full border ${chipBorder} ${chipBg} text-xs font-semibold ${textPrimary} transition ` +
     (isDark ? "hover:border-white hover:bg-white/10" : "hover:border-slate-400 hover:bg-white");
+  const adminIconBtn = `${iconBtn} border-emerald-300/60 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-500/15`;
   const toolbarShell = `flex items-center gap-1 rounded-full border ${panelBorder} ${
     isDark ? "bg-white/10" : "bg-white/70"
   } px-2 py-1 text-xs font-semibold ${textPrimary} shadow-sm backdrop-blur`;
@@ -1651,6 +1653,16 @@ export function Chat({
               >
                 <SwatchIcon className="h-4 w-4" />
               </button>
+              {isAdmin && (
+                <a
+                  href="/admin"
+                  onClick={() => setControlsOpen(false)}
+                  className={`${adminIconBtn} h-10 w-10`}
+                  title="Admin dashboard"
+                >
+                  <ShieldCheckIcon className="h-4 w-4" />
+                </a>
+              )}
               <button
                 onClick={() => {
                   togglePinnedPanel();

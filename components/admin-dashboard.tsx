@@ -7,22 +7,29 @@ type UserRow = {
   displayName: string;
   image: string | null;
   isAdmin: boolean;
+  isBlocked: boolean;
   createdAt: string;
   used: number;
+  limit: number;
   remaining: number;
 };
 type UsagePoint = { day: string; responses: number };
 
 type Props = {
   users: UserRow[];
-  limit: number;
+  defaultLimit: number;
 };
 
-export function AdminDashboard({ users, limit }: Props) {
+export function AdminDashboard({ users, defaultLimit }: Props) {
+  const [userList, setUserList] = useState(users);
   const [selectedId, setSelectedId] = useState(users[0]?.id ?? "");
   const [usage, setUsage] = useState<UsagePoint[]>([]);
   const [loading, setLoading] = useState(false);
-  const [quotaLimit, setQuotaLimit] = useState(limit);
+  const [quotaLimit, setQuotaLimit] = useState(users[0]?.limit ?? defaultLimit);
+  const [limitInput, setLimitInput] = useState(String(users[0]?.limit ?? defaultLimit));
+  const [blocked, setBlocked] = useState(users[0]?.isBlocked ?? false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -39,7 +46,17 @@ export function AdminDashboard({ users, limit }: Props) {
       .finally(() => setLoading(false));
   }, [selectedId]);
 
-  const selectedUser = users.find((u) => u.id === selectedId) ?? null;
+  useEffect(() => {
+    const selected = userList.find((u) => u.id === selectedId);
+    if (selected) {
+      const nextLimit = selected.limit ?? defaultLimit;
+      setQuotaLimit(nextLimit);
+      setLimitInput(String(nextLimit));
+      setBlocked(selected.isBlocked);
+    }
+  }, [selectedId, userList, defaultLimit]);
+
+  const selectedUser = userList.find((u) => u.id === selectedId) ?? null;
   const selectedRemaining = selectedUser
     ? Math.max(quotaLimit - selectedUser.used, 0)
     : quotaLimit;
@@ -48,7 +65,40 @@ export function AdminDashboard({ users, limit }: Props) {
     [quotaLimit, usage]
   );
 
-  if (users.length === 0) {
+  const updateUserSettings = async (updates: { dailyLimit?: number | null; isBlocked?: boolean }) => {
+    if (!selectedId) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedId, ...updates }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSaveMessage(payload.error ?? "Failed to save");
+        return;
+      }
+      const updated = payload.user as UserRow | undefined;
+      if (updated) {
+        setUserList((prev) =>
+          prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u))
+        );
+        setQuotaLimit(updated.limit);
+        setLimitInput(String(updated.limit));
+        setBlocked(updated.isBlocked);
+        setSaveMessage("Saved");
+      }
+    } catch (err) {
+      setSaveMessage("Failed to save");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
+  if (userList.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-10 text-white">
         <div className="mx-auto max-w-4xl rounded-2xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
@@ -84,7 +134,7 @@ export function AdminDashboard({ users, limit }: Props) {
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-200">Users</p>
-            <p className="mt-2 text-2xl font-semibold">{users.length}</p>
+            <p className="mt-2 text-2xl font-semibold">{userList.length}</p>
             <p className="text-xs text-slate-300">Registered accounts</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
@@ -108,9 +158,9 @@ export function AdminDashboard({ users, limit }: Props) {
               <p className="text-[11px] text-slate-300">{quotaLimit} responses / day</p>
             </div>
             <div className="max-h-[60vh] space-y-2 overflow-auto pr-2">
-              {users.map((u) => {
-                const usedPct = quotaLimit
-                  ? Math.min(100, (u.used / quotaLimit) * 100)
+              {userList.map((u) => {
+                const usedPct = u.limit
+                  ? Math.min(100, (u.used / u.limit) * 100)
                   : 0;
                 return (
                   <button
@@ -134,12 +184,17 @@ export function AdminDashboard({ users, limit }: Props) {
                           />
                         </div>
                         <p className="mt-1 text-[11px] text-slate-300">
-                          Used {u.used}/{quotaLimit} · Left {Math.max(quotaLimit - u.used, u.remaining)}
+                          Used {u.used}/{u.limit} · Left {Math.max(u.limit - u.used, 0)}
                         </p>
                       </div>
                       {u.isAdmin && (
                         <span className="rounded-full border border-amber-300/40 bg-amber-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-100">
                           Admin
+                        </span>
+                      )}
+                      {u.isBlocked && (
+                        <span className="rounded-full border border-red-300/40 bg-red-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-red-100">
+                          Blocked
                         </span>
                       )}
                     </div>
@@ -181,6 +236,58 @@ export function AdminDashboard({ users, limit }: Props) {
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Role</p>
                       <p className="mt-1 text-lg font-semibold">{selectedUser.isAdmin ? "Admin" : "User"}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
+                      <div className="flex-1">
+                        <label className="text-[11px] uppercase tracking-[0.2em] text-slate-300">
+                          Daily quota
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10000}
+                          value={limitInput}
+                          onChange={(e) => setLimitInput(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none ring-1 ring-transparent transition focus:border-white/40 focus:ring-white/20"
+                        />
+                        <p className="mt-1 text-[11px] text-slate-400">Default: {defaultLimit}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const trimmed = limitInput.trim();
+                          const parsed = trimmed === "" ? null : Number(trimmed);
+                          if (parsed !== null && !Number.isFinite(parsed)) {
+                            setSaveMessage("Enter a valid number");
+                            return;
+                          }
+                          updateUserSettings({ dailyLimit: parsed });
+                        }}
+                        disabled={saving}
+                        className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-400 disabled:opacity-60 sm:w-auto"
+                      >
+                        {saving ? "Saving..." : "Save quota"}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-[11px] uppercase tracking-[0.2em] text-slate-300">
+                        Status: {blocked ? "Blocked" : "Active"}
+                      </span>
+                      <button
+                        onClick={() => updateUserSettings({ isBlocked: !blocked })}
+                        disabled={saving}
+                        className={`rounded-lg px-4 py-2 text-sm font-semibold shadow-lg transition ${
+                          blocked
+                            ? "border border-emerald-300/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
+                            : "border border-red-300/40 bg-red-500/15 text-red-100 hover:bg-red-500/25"
+                        } disabled:opacity-60`}
+                      >
+                        {blocked ? "Unblock user" : "Block user"}
+                      </button>
+                      {saveMessage && (
+                        <span className="text-xs text-slate-200">{saveMessage}</span>
+                      )}
                     </div>
                   </div>
                 </div>

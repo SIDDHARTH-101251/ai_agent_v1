@@ -14,12 +14,28 @@ export async function POST(req: NextRequest) {
       (session?.user as { email?: string } | undefined)?.email ||
       (session?.user as { name?: string } | undefined)?.name
   );
-  const isAdmin = Boolean((session?.user as { isAdmin?: boolean } | undefined)?.isAdmin);
+  const isAdminFromToken = Boolean((session?.user as { isAdmin?: boolean } | undefined)?.isAdmin);
   let today: Date | null = null;
   let todayRemaining: number | null = null;
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const userRecord = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isBlocked: true, dailyLimit: true, isAdmin: true },
+  });
+
+  if (!userRecord) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const isAdmin = isAdminFromToken || userRecord.isAdmin;
+  const effectiveLimit = userRecord.dailyLimit ?? DAILY_RESPONSE_LIMIT;
+
+  if (!isAdmin && userRecord.isBlocked) {
+    return NextResponse.json({ error: "Account is blocked" }, { status: 403 });
   }
 
   if (!isAdmin) {
@@ -28,7 +44,7 @@ export async function POST(req: NextRequest) {
       where: { userId_day: { userId, day: today } },
       select: { responses: true },
     });
-    if (usage && usage.responses >= DAILY_RESPONSE_LIMIT) {
+    if (usage && usage.responses >= effectiveLimit) {
       return NextResponse.json(
         { error: "Daily response limit reached" },
         { status: 429 }
@@ -125,7 +141,7 @@ export async function POST(req: NextRequest) {
             select: { responses: true },
           });
           todayRemaining = Math.max(
-            DAILY_RESPONSE_LIMIT - (updatedUsage?.responses ?? 0),
+            effectiveLimit - (updatedUsage?.responses ?? 0),
             0
           );
         }
@@ -155,7 +171,7 @@ export async function POST(req: NextRequest) {
       ...(todayRemaining !== null
         ? {
             "X-Usage-Remaining": String(todayRemaining),
-            "X-Usage-Limit": String(DAILY_RESPONSE_LIMIT),
+            "X-Usage-Limit": String(effectiveLimit),
           }
         : {}),
     },
