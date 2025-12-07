@@ -483,6 +483,7 @@ type Props = {
   initialThemeMode?: string;
   initialPinnedIds?: string[];
   initialFontScale?: number;
+  initialHasGoogleKey?: boolean;
 };
 
 export function Chat({
@@ -494,6 +495,7 @@ export function Chat({
   initialThemeMode,
   initialPinnedIds,
   initialFontScale,
+  initialHasGoogleKey,
 }: Props) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -502,6 +504,11 @@ export function Chat({
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasPersonalKey, setHasPersonalKey] = useState(Boolean(initialHasGoogleKey));
+  const [personalKeyInput, setPersonalKeyInput] = useState("");
+  const [savingPersonalKey, setSavingPersonalKey] = useState(false);
+  const [personalKeyMessage, setPersonalKeyMessage] = useState<string | null>(null);
+  const [highlightPersonalKey, setHighlightPersonalKey] = useState(false);
   const [themeIndex, setThemeIndex] = useState(() => {
     const idx = THEMES.findIndex(
       (t) => t.name.toLowerCase() === initialThemeName?.toLowerCase()
@@ -963,7 +970,13 @@ export function Chat({
       });
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Unexpected error");
+      const message = err instanceof Error ? err.message : "Unexpected error";
+      setError(message);
+      if (message.toLowerCase().includes("daily response limit")) {
+        setSidebarOpen(true);
+        setHighlightPersonalKey(true);
+        setTimeout(() => setHighlightPersonalKey(false), 2500);
+      }
     } finally {
       setIsStreaming(false);
       setInput("");
@@ -1139,6 +1152,62 @@ export function Chat({
       });
     } catch (err) {
       console.error("Failed to persist font scale", err);
+    }
+  };
+
+  const savePersonalKey = async () => {
+    const trimmed = personalKeyInput.trim();
+    if (!trimmed) {
+      setPersonalKeyMessage("Paste your Google API key to save");
+      return;
+    }
+    setSavingPersonalKey(true);
+    setPersonalKeyMessage(null);
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ googleApiKey: trimmed }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPersonalKeyMessage(payload.error ?? "Failed to save key");
+        return;
+      }
+      setHasPersonalKey(Boolean(payload.hasGoogleKey));
+      setPersonalKeyMessage("Personal key saved");
+      setPersonalKeyInput("");
+    } catch (err) {
+      console.error("Failed to save personal key", err);
+      setPersonalKeyMessage("Failed to save key");
+    } finally {
+      setSavingPersonalKey(false);
+      setTimeout(() => setPersonalKeyMessage(null), 2500);
+    }
+  };
+
+  const clearPersonalKey = async () => {
+    setSavingPersonalKey(true);
+    setPersonalKeyMessage(null);
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clearGoogleApiKey: true }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPersonalKeyMessage(payload.error ?? "Failed to clear key");
+        return;
+      }
+      setHasPersonalKey(false);
+      setPersonalKeyMessage("Personal key removed");
+    } catch (err) {
+      console.error("Failed to clear personal key", err);
+      setPersonalKeyMessage("Failed to clear key");
+    } finally {
+      setSavingPersonalKey(false);
+      setTimeout(() => setPersonalKeyMessage(null), 2000);
     }
   };
 
@@ -1410,6 +1479,84 @@ export function Chat({
         >
           + New conversation
         </button>
+        <div
+          className={`rounded-lg border px-3 py-3 text-sm transition ${
+            highlightPersonalKey ? "border-emerald-300 bg-emerald-500/10" : panelBorder
+          } ${panelBg}`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className={`text-[11px] uppercase tracking-[0.2em] ${textSecondary}`}>
+              Personal API key
+            </p>
+            <span
+              className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                hasPersonalKey
+                  ? isDark
+                    ? "border border-emerald-300/50 bg-emerald-400/10 text-emerald-100"
+                    : "border border-emerald-500/50 bg-emerald-50 text-emerald-800"
+                  : isDark
+                  ? "border border-white/20 bg-white/10 text-slate-200"
+                  : "border border-slate-300 bg-white text-slate-700"
+              }`}
+            >
+              {hasPersonalKey ? "Active" : "Optional"}
+            </span>
+          </div>
+          <p className={`mt-1 text-xs ${textSecondary}`}>
+            Use your own Google API key to bypass the daily limit. We encrypt it on the server.
+          </p>
+          {!hasPersonalKey && (
+            <div className="mt-2 space-y-2">
+              <input
+                type="password"
+                value={personalKeyInput}
+                onChange={(e) => setPersonalKeyInput(e.target.value)}
+                placeholder="Paste your Google API key"
+                className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${
+                  isDark
+                    ? "border-white/15 bg-white/5 text-white focus:border-white/40 focus:ring-2 focus:ring-white/20"
+                    : "border-slate-300 bg-white text-slate-900 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                }`}
+              />
+              <button
+                onClick={savePersonalKey}
+                disabled={savingPersonalKey}
+                className={`w-full rounded-lg px-3 py-2 text-sm font-semibold text-white shadow transition ${
+                  savingPersonalKey ? "opacity-60" : "hover:-translate-y-0.5"
+                } ${theme.accent}`}
+              >
+                {savingPersonalKey ? "Saving..." : "Save key"}
+              </button>
+            </div>
+          )}
+          {hasPersonalKey && (
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className={`text-[11px] ${textSecondary}`}>
+                Personal key in use. Responses come from your quota.
+              </p>
+              <button
+                onClick={clearPersonalKey}
+                disabled={savingPersonalKey}
+                className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] transition disabled:opacity-60 ${
+                  isDark
+                    ? "border-red-300/40 bg-red-500/10 text-red-100 hover:bg-red-500/20"
+                    : "border-red-400/60 bg-red-50 text-red-700 hover:bg-red-100"
+                }`}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          {personalKeyMessage && (
+            <p
+              className={`mt-2 text-[11px] ${
+                isDark ? "text-emerald-100" : "text-emerald-700"
+              }`}
+            >
+              {personalKeyMessage}
+            </p>
+          )}
+        </div>
         <div className="flex-1 space-y-2 overflow-y-auto pr-1 text-sm">
           {conversations.length === 0 && (
             <p

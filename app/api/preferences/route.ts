@@ -1,6 +1,58 @@
 import { NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { encryptSecret } from "@/lib/crypto";
+
+export async function GET() {
+  const session = await getAuthSession();
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+  const hasIdentity =
+    userId ||
+    (session?.user as { email?: string } | undefined)?.email ||
+    (session?.user as { name?: string } | undefined)?.name;
+
+  if (!hasIdentity || !userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      themeName: true,
+      themeMode: true,
+      profileSummary: true,
+      image: true,
+      googleApiKeyCipher: true,
+      googleApiKeySetAt: true,
+    },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let fontScale: number | undefined;
+  if (user.profileSummary) {
+    try {
+      const parsed = JSON.parse(user.profileSummary);
+      const val = parsed?.fontScale;
+      if (typeof val === "number" && val > 0.6 && val < 2.5) {
+        fontScale = val;
+      }
+    } catch {
+      // ignore invalid profileSummary
+    }
+  }
+
+  return NextResponse.json({
+    themeName: user.themeName,
+    themeMode: user.themeMode,
+    image: user.image,
+    fontScale,
+    hasGoogleKey: Boolean(user.googleApiKeyCipher),
+    googleApiKeySetAt: user.googleApiKeySetAt?.toISOString() ?? null,
+  });
+}
 
 export async function PATCH(request: Request) {
   const session = await getAuthSession();
@@ -19,16 +71,38 @@ export async function PATCH(request: Request) {
   const themeMode = typeof body?.themeMode === "string" ? body.themeMode : undefined;
   const fontScaleRaw = body?.fontScale;
   const imageDataUrl = typeof body?.imageDataUrl === "string" ? body.imageDataUrl : undefined;
+  const googleApiKeyRaw =
+    typeof body?.googleApiKey === "string" ? body.googleApiKey.trim() : undefined;
+  const clearGoogleApiKey = body?.clearGoogleApiKey === true;
   const fontScale =
     typeof fontScaleRaw === "number" && fontScaleRaw > 0.6 && fontScaleRaw < 2.5
       ? fontScaleRaw
       : undefined;
 
-  if (!themeName && !themeMode && !fontScale && !imageDataUrl) {
+  if (!themeName && !themeMode && !fontScale && !imageDataUrl && !googleApiKeyRaw && !clearGoogleApiKey) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
+  if (googleApiKeyRaw !== undefined && googleApiKeyRaw.length < 16) {
+    return NextResponse.json({ error: "Google API key looks invalid" }, { status: 400 });
+  }
+  if (googleApiKeyRaw !== undefined && googleApiKeyRaw.length > 512) {
+    return NextResponse.json({ error: "Google API key too long" }, { status: 400 });
+  }
+
   let existingPrefs: Record<string, unknown> = {};
+  let encryptedKey: string | undefined;
+  if (googleApiKeyRaw) {
+    try {
+      encryptedKey = encryptSecret(googleApiKeyRaw);
+    } catch (err) {
+      console.error("[encrypt-google-key]", err);
+      return NextResponse.json(
+        { error: "Server is missing USER_KEY_ENCRYPTION_KEY" },
+        { status: 500 }
+      );
+    }
+  }
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { profileSummary: true },
@@ -57,9 +131,34 @@ export async function PATCH(request: Request) {
       ...(themeMode ? { themeMode } : {}),
       ...(imageDataUrl ? { image: imageDataUrl } : {}),
       ...(fontScale !== undefined ? { profileSummary: JSON.stringify(mergedPrefs) } : {}),
+      ...(googleApiKeyRaw
+        ? {
+            googleApiKeyCipher: encryptedKey,
+            googleApiKeySetAt: new Date(),
+          }
+        : {}),
+      ...(clearGoogleApiKey
+        ? {
+            googleApiKeyCipher: null,
+            googleApiKeySetAt: null,
+          }
+        : {}),
     },
-    select: { themeName: true, themeMode: true, profileSummary: true, image: true },
+    select: {
+      themeName: true,
+      themeMode: true,
+      profileSummary: true,
+      image: true,
+      googleApiKeyCipher: true,
+      googleApiKeySetAt: true,
+    },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({
+    themeName: updated.themeName,
+    themeMode: updated.themeMode,
+    image: updated.image,
+    hasGoogleKey: Boolean(updated.googleApiKeyCipher),
+    googleApiKeySetAt: updated.googleApiKeySetAt?.toISOString() ?? null,
+  });
 }

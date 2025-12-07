@@ -13,6 +13,7 @@ type RunAgentParams = {
   onToken?: (token: string) => void;
   threadId: string;
   userId: string;
+  apiKey?: string;
 };
 
 const DEFAULT_SYSTEM =
@@ -36,9 +37,10 @@ export async function runReactAgent({
   onToken,
   threadId,
   userId,
+  apiKey,
 }: RunAgentParams): Promise<string> {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
+  const key = apiKey ?? process.env.GOOGLE_API_KEY;
+  if (!key) {
     throw new Error("GOOGLE_API_KEY is not set");
   }
 
@@ -140,7 +142,7 @@ export async function runReactAgent({
 
   const llm = new ChatGoogleGenerativeAI({
     model: GEMINI_MODEL,
-    apiKey,
+    apiKey: key,
     streaming: true,
     safetySettings: [],
     maxOutputTokens: 2048,

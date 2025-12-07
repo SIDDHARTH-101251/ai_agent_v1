@@ -5,6 +5,7 @@ import { runReactAgent } from "@/lib/agent";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GEMINI_MODEL } from "@/lib/gemini";
 import { addUTCDays, startOfUTCDay } from "@/lib/dates";
+import { decryptSecret } from "@/lib/crypto";
 
 export async function POST(req: NextRequest) {
   const session = await getAuthSession();
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   const userRecord = await prisma.user.findUnique({
     where: { id: userId },
-    select: { isBlocked: true, dailyLimit: true, isAdmin: true },
+    select: { isBlocked: true, dailyLimit: true, isAdmin: true, googleApiKeyCipher: true },
   });
 
   if (!userRecord) {
@@ -31,7 +32,13 @@ export async function POST(req: NextRequest) {
   }
 
   const isAdmin = isAdminFromToken || userRecord.isAdmin;
-  const effectiveLimit = userRecord.dailyLimit ?? DAILY_RESPONSE_LIMIT;
+  const personalApiKey = userRecord.googleApiKeyCipher
+    ? decryptSecret(userRecord.googleApiKeyCipher)
+    : null;
+  const isUsingPersonalKey = Boolean(personalApiKey);
+  const effectiveLimit = isUsingPersonalKey
+    ? Number.POSITIVE_INFINITY
+    : userRecord.dailyLimit ?? DAILY_RESPONSE_LIMIT;
   const day = startOfUTCDay();
   const dayEnd = addUTCDays(day, 1);
 
@@ -44,7 +51,7 @@ export async function POST(req: NextRequest) {
     select: { id: true, responses: true },
   });
 
-  if (!isAdmin && existingUsage && existingUsage.responses >= effectiveLimit) {
+  if (!isAdmin && !isUsingPersonalKey && existingUsage && existingUsage.responses >= effectiveLimit) {
     return NextResponse.json(
       { error: "Daily response limit reached" },
       { status: 429 }
@@ -110,14 +117,15 @@ export async function POST(req: NextRequest) {
       try {
         const fullMessage = await runReactAgent({
           prompt,
-          history: [...recentHistory, userMessage],
-          threadId: conversation!.id,
-          userId: ownerId,
-          onToken: (token) => {
-            assistantBuffer.push(token);
-            controller.enqueue(encoder.encode(token));
-          },
-        });
+      history: [...recentHistory, userMessage],
+      threadId: conversation!.id,
+      userId: ownerId,
+      apiKey: personalApiKey ?? undefined,
+      onToken: (token) => {
+        assistantBuffer.push(token);
+        controller.enqueue(encoder.encode(token));
+      },
+    });
 
         if (assistantBuffer.length === 0 && fullMessage) {
           assistantBuffer.push(fullMessage);
@@ -141,14 +149,16 @@ export async function POST(req: NextRequest) {
               data: { userId: ownerId, day, responses: 1 },
               select: { responses: true },
             });
-        todayRemaining = Math.max(
-          effectiveLimit - (updatedUsage?.responses ?? 0),
-          0
-        );
+        if (!isUsingPersonalKey && Number.isFinite(effectiveLimit)) {
+          todayRemaining = Math.max(
+            (effectiveLimit as number) - (updatedUsage?.responses ?? 0),
+            0
+          );
+        }
 
         // Update conversation summary in the background.
         try {
-          await generateSummary(conversation!.id);
+          await generateSummary(conversation!.id, personalApiKey ?? process.env.GOOGLE_API_KEY ?? "");
         } catch (err) {
           console.error("[summary-error]", err);
         }
@@ -178,7 +188,7 @@ export async function POST(req: NextRequest) {
   });
 }
 
-async function generateSummary(conversationId: string) {
+async function generateSummary(conversationId: string, apiKey: string) {
   const convo = await prisma.conversation.findUnique({
     where: { id: conversationId },
     include: {
@@ -199,7 +209,8 @@ async function generateSummary(conversationId: string) {
 
   if (!text.trim()) return;
 
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY ?? "");
+  if (!apiKey) return;
+  const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
   const prompt = `Summarize this conversation in under 60 words. Capture goals, decisions, and context.\n\n${text}`;
 

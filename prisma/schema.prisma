@@ -23,6 +23,8 @@ model User {
   themeMode      String          @default("dark")
   themeName      String          @default("Aurora")
   profileSummary String?
+  googleApiKeyCipher String?
+  googleApiKeySetAt  DateTime?
   accounts       Account[]
   conversations  Conversation[]
   pinned         PinnedMessage[]

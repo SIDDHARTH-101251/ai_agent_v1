@@ -12,6 +12,7 @@ type UserRow = {
   used: number;
   limit: number;
   remaining: number;
+  hasGoogleKey: boolean;
 };
 type UsagePoint = { day: string; responses: number };
 
@@ -40,6 +41,13 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
         setUsage(Array.isArray(data.usage) ? data.usage : []);
         if (typeof data.limit === "number") {
           setQuotaLimit(data.limit);
+        }
+        if (typeof data.hasGoogleKey === "boolean") {
+          setUserList((prev) =>
+            prev.map((u) =>
+              u.id === selectedId ? { ...u, hasGoogleKey: data.hasGoogleKey } : u
+            )
+          );
         }
       })
       .catch(() => setUsage([]))
@@ -197,6 +205,11 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
                           Blocked
                         </span>
                       )}
+                      {u.hasGoogleKey && (
+                        <span className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-100">
+                          Personal key
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -224,7 +237,7 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
                       <p className="text-[11px] text-slate-400">of {quotaLimit} today</p>
                     </div>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Used today</p>
                       <p className="mt-1 text-lg font-semibold">{selectedUser.used}</p>
@@ -236,6 +249,12 @@ export function AdminDashboard({ users, defaultLimit }: Props) {
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Role</p>
                       <p className="mt-1 text-lg font-semibold">{selectedUser.isAdmin ? "Admin" : "User"}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-300">Personal key</p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {selectedUser.hasGoogleKey ? "Active" : "Not set"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-3">

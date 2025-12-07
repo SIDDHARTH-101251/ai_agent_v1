@@ -9,10 +9,10 @@ export default async function Home() {
   const profileSummary =
     (session?.user as { profileSummary?: string } | undefined)?.profileSummary ??
     null;
-  const userImageRecord = userId
+  const userRecord = userId
     ? await prisma.user.findUnique({
         where: { id: userId },
-        select: { image: true },
+        select: { image: true, googleApiKeyCipher: true },
       })
     : null;
 
@@ -123,7 +123,7 @@ export default async function Home() {
   return (
     <Chat
       userName={session.user?.name ?? session.user?.email}
-      userImage={userImageRecord?.image ?? session.user?.image ?? null}
+      userImage={userRecord?.image ?? session.user?.image ?? null}
       isAdmin={(session.user as { isAdmin?: boolean } | undefined)?.isAdmin ?? false}
       initialConversations={initialConversations}
       initialThemeName={
@@ -135,11 +135,12 @@ export default async function Home() {
       initialThemeMode={
         typeof (session.user as { themeMode?: string } | undefined)?.themeMode ===
         "string"
-          ? ((session.user as { themeMode?: string }).themeMode as string)
-          : undefined
+        ? ((session.user as { themeMode?: string }).themeMode as string)
+        : undefined
       }
       initialPinnedIds={pinned.map((p) => p.messageId)}
       initialFontScale={initialFontScale}
+      initialHasGoogleKey={Boolean(userRecord?.googleApiKeyCipher)}
     />
   );
 }

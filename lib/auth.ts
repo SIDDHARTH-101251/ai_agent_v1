@@ -77,6 +77,7 @@ export const authOptions: NextAuthOptions = {
             profileSummary: created.profileSummary,
             image: created.image,
             isAdmin: created.isAdmin,
+            hasGoogleKey: Boolean(created.googleApiKeyCipher),
           } as any;
         }
 
@@ -95,6 +96,7 @@ export const authOptions: NextAuthOptions = {
           profileSummary: user.profileSummary,
           image: user.image,
           isAdmin: user.isAdmin,
+          hasGoogleKey: Boolean(user.googleApiKeyCipher),
         } as any;
       },
     }),
@@ -116,6 +118,7 @@ export const authOptions: NextAuthOptions = {
           email?: string | null;
           image?: string | null;
           isAdmin?: boolean;
+          hasGoogleKey?: boolean;
         };
         token.id = anyUser.id;
         token.name = anyUser.username ?? anyUser.name ?? token.name;
@@ -131,6 +134,7 @@ export const authOptions: NextAuthOptions = {
           delete (token as any).picture;
         }
         (token as any).isAdmin = anyUser.isAdmin ?? false;
+        (token as any).hasGoogleKey = anyUser.hasGoogleKey ?? false;
       }
       return token;
     },
@@ -144,6 +148,7 @@ export const authOptions: NextAuthOptions = {
           name?: string | null;
           image?: string | null;
           isAdmin?: boolean;
+          hasGoogleKey?: boolean;
         };
         u.id = token.id as string | undefined;
         u.themeName = (token as any).themeName;
@@ -152,6 +157,17 @@ export const authOptions: NextAuthOptions = {
         u.name = (token.name as string) ?? u.name ?? null;
         u.image = safeString(token.picture as string | undefined) ?? u.image ?? null;
         (u as any).isAdmin = (token as any).isAdmin ?? false;
+        if (u.id) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: u.id },
+            select: { googleApiKeyCipher: true },
+          });
+          const hasKey = Boolean(dbUser?.googleApiKeyCipher);
+          (u as any).hasGoogleKey = hasKey;
+          (token as any).hasGoogleKey = hasKey;
+        } else {
+          (u as any).hasGoogleKey = (token as any).hasGoogleKey ?? false;
+        }
       }
       return session;
     },

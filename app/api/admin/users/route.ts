@@ -32,11 +32,16 @@ export async function GET(req: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { dailyLimit: true },
+      select: { dailyLimit: true, googleApiKeyCipher: true },
     });
     const effectiveLimit = user?.dailyLimit ?? DAILY_RESPONSE_LIMIT;
 
-    return NextResponse.json({ usage, limit: effectiveLimit, defaultLimit: DAILY_RESPONSE_LIMIT });
+    return NextResponse.json({
+      usage,
+      limit: effectiveLimit,
+      defaultLimit: DAILY_RESPONSE_LIMIT,
+      hasGoogleKey: Boolean(user?.googleApiKeyCipher),
+    });
   }
 
   const today = startOfUTCDay();
@@ -51,6 +56,7 @@ export async function GET(req: NextRequest) {
       isAdmin: true,
       isBlocked: true,
       dailyLimit: true,
+      googleApiKeyCipher: true,
       createdAt: true,
       usage: { where: { day: { gte: today, lt: tomorrow } }, select: { responses: true } },
     },
@@ -70,6 +76,7 @@ export async function GET(req: NextRequest) {
       createdAt: u.createdAt,
       used,
       remaining: Math.max(effectiveLimit - used, 0),
+      hasGoogleKey: Boolean(u.googleApiKeyCipher),
     };
   });
 
@@ -123,6 +130,7 @@ export async function PATCH(req: NextRequest) {
         isAdmin: true,
         isBlocked: true,
         dailyLimit: true,
+        googleApiKeyCipher: true,
         createdAt: true,
         usage: {
           where: {
@@ -149,6 +157,7 @@ export async function PATCH(req: NextRequest) {
         createdAt: updated.createdAt,
         used,
         remaining: Math.max(effectiveLimit - used, 0),
+        hasGoogleKey: Boolean(updated.googleApiKeyCipher),
       },
     });
   } catch (err) {
